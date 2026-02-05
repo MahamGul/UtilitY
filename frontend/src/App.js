@@ -2,57 +2,79 @@ import React, { useState, useEffect } from "react";
 import axios from "axios";
 
 function App() {
-  const [users, setUsers] = useState([]);
-  const [name, setName] = useState("");
-  const [email, setEmail] = useState("");
+  // State variables
+  const [users, setUsers] = useState([]); // list of users from DB
+  const [name, setName] = useState("");   // new user name
+  const [email, setEmail] = useState(""); // new user email
 
-  const API_BASE = "http://127.0.0.1:8000"; // Your FastAPI backend URL
+  // Backend URL
+  const API_BASE = "http://127.0.0.1:8000";
 
-  // Fetch users on load
+  // Fetch users from backend when component loads
   useEffect(() => {
     fetchUsers();
   }, []);
 
+  // Function to fetch all users
   const fetchUsers = async () => {
     try {
       const res = await axios.get(`${API_BASE}/users`);
-      setUsers(res.data);
+      setUsers(res.data); // set users state
     } catch (err) {
       console.error("Error fetching users:", err);
     }
   };
 
+  // Function to add a new user
   const handleAddUser = async () => {
-    if (!name || !email) return alert("Enter name and email!");
+    if (!name || !email) return alert("Please enter both name and email!");
+
     try {
       await axios.post(`${API_BASE}/add-user`, { name, email });
-      setName("");
+      setName("");   // clear input fields
       setEmail("");
-      fetchUsers(); // refresh list
+      fetchUsers();  // refresh user list
     } catch (err) {
       console.error("Error adding user:", err);
     }
   };
 
   return (
-    <div style={{ padding: 20 }}>
-      <h1>Users</h1>
-      <input
-        placeholder="Name"
-        value={name}
-        onChange={(e) => setName(e.target.value)}
-      />
-      <input
-        placeholder="Email"
-        value={email}
-        onChange={(e) => setEmail(e.target.value)}
-      />
-      <button onClick={handleAddUser}>Add User</button>
+    <div style={{ padding: "20px", fontFamily: "Arial" }}>
+      <h1>MongoDB Users</h1>
 
+      {/* Input form */}
+      <div style={{ marginBottom: "20px" }}>
+        <input
+          type="text"
+          placeholder="Name"
+          value={name}
+          onChange={(e) => setName(e.target.value)}
+          style={{ marginRight: "10px", padding: "5px" }}
+        />
+        <input
+          type="email"
+          placeholder="Email"
+          value={email}
+          onChange={(e) => setEmail(e.target.value)}
+          style={{ marginRight: "10px", padding: "5px" }}
+        />
+        <button onClick={handleAddUser} style={{ padding: "5px 10px" }}>
+          Add User
+        </button>
+      </div>
+
+      {/* User list */}
       <ul>
-        {users.map((user, i) => (
-          <li key={i}>{user.name} - {user.email}</li>
-        ))}
+        {users.length === 0 ? (
+          <li>No users found</li>
+        ) : (
+          users.map((user, index) => (
+            <li key={index}>
+              <strong>{user.name}</strong> - {user.email}
+            </li>
+          ))
+        )}
       </ul>
     </div>
   );

@@ -6,7 +6,7 @@ app = FastAPI()
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:5173"],
+    allow_origins=["http://localhost:5173"],  # React frontend
     allow_methods=["*"],
     allow_headers=["*"],
 )
@@ -15,17 +15,19 @@ app.add_middleware(
 def root():
     return {"message": "Backend connected to MongoDB 🚀"}
 
+# Add a user to the 'user' collection
 @app.post("/add-user")
 def add_user(user: dict):
-    db.users.insert_one(user)
+    db.user.insert_one(user)  # ✅ collection name is 'user'
     return {"status": "User added successfully"}
 
+# Get all users from the 'user' collection
 @app.get("/users")
 def list_users():
-    users = list(db.users.find({}, {"_id": 0}))  # exclude _id
+    users = list(db.user.find({}, {"_id": 0}))  # ✅ collection name is 'user'
     return users
 
-# ✅ This block lets you run python main.py directly
+# Run backend directly
 if __name__ == "__main__":
     import uvicorn
     uvicorn.run("main:app", host="127.0.0.1", port=8000, reload=True)
