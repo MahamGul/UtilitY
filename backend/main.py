@@ -25,7 +25,7 @@ def add_user(user: dict):
     db.user.insert_one(user)  # ✅ collection name is 'user'
     return {"status": "User added successfully"}
 
-# Get all users from the 'user' collection
+# Get all users from the 'user' collection from the database
 @app.get("/users")
 def list_users():
     users = list(db.user.find({}, {"_id": 0}))  # ✅ collection name is 'user'
