@@ -1,70 +1,55 @@
-# Getting Started with Create React App
+Utility – Service Provider Platform
 
-This project was bootstrapped with [Create React App](https://github.com/facebook/create-react-app).
+Utility is a full‑stack platform that connects customers with service providers (plumber, electrician, mechanic, etc.).
 
-## Available Scripts
+This repository contains:
 
-In the project directory, you can run:
+Frontend: React.js
 
-### `npm start`
+Backend: FastAPI (Python)
 
-Runs the app in the development mode.\
-Open [http://localhost:3000](http://localhost:3000) to view it in your browser.
+Database: MongoDB
 
-The page will reload when you make changes.\
-You may also see any lint errors in the console.
+This README is written so that any team member can clone the repo and run the backend, frontend, and database locally without confusion.
 
-### `npm test`
+1️⃣ Prerequisites
 
-Launches the test runner in the interactive watch mode.\
-See the section about [running tests](https://facebook.github.io/create-react-app/docs/running-tests) for more information.
+Make sure the following are installed on your system:
 
-### `npm run build`
+Git
 
-Builds the app for production to the `build` folder.\
-It correctly bundles React in production mode and optimizes the build for the best performance.
+Node.js (v18 or later recommended)
 
-The build is minified and the filenames include the hashes.\
-Your app is ready to be deployed!
+npm (comes with Node)
 
-See the section about [deployment](https://facebook.github.io/create-react-app/docs/deployment) for more information.
+Python (3.9 or later)
 
-### `npm run eject`
+pip (comes with Python)
 
-**Note: this is a one-way operation. Once you `eject`, you can't go back!**
+MongoDB (local OR MongoDB Atlas)
 
-If you aren't satisfied with the build tool and configuration choices, you can `eject` at any time. This command will remove the single build dependency from your project.
+Check versions:
+node -v
+npm -v
+python --version
+3️⃣ Backend Setup (FastAPI)
+Step 1: Go to backend folder
+cd backend
+cd backend
+Step 2: Create virtual environment (recommended)
+python -m venv venv
+Step 3: Install dependencies
+pip install -r requirements.txt
+Step 4: Environment variables
+Create a .env file in backend
+paste the URI sent
+Step 5: Run backend server
+python main.py
 
-Instead, it will copy all the configuration files and the transitive dependencies (webpack, Babel, ESLint, etc) right into your project so you have full control over them. All of the commands except `eject` will still work, but they will point to the copied scripts so you can tweak them. At this point you're on your own.
-
-You don't have to ever use `eject`. The curated feature set is suitable for small and middle deployments, and you shouldn't feel obligated to use this feature. However we understand that this tool wouldn't be useful if you couldn't customize it when you are ready for it.
-
-## Learn More
-
-You can learn more in the [Create React App documentation](https://facebook.github.io/create-react-app/docs/getting-started).
-
-To learn React, check out the [React documentation](https://reactjs.org/).
-
-### Code Splitting
-
-This section has moved here: [https://facebook.github.io/create-react-app/docs/code-splitting](https://facebook.github.io/create-react-app/docs/code-splitting)
-
-### Analyzing the Bundle Size
-
-This section has moved here: [https://facebook.github.io/create-react-app/docs/analyzing-the-bundle-size](https://facebook.github.io/create-react-app/docs/analyzing-the-bundle-size)
-
-### Making a Progressive Web App
-
-This section has moved here: [https://facebook.github.io/create-react-app/docs/making-a-progressive-web-app](https://facebook.github.io/create-react-app/docs/making-a-progressive-web-app)
-
-### Advanced Configuration
-
-This section has moved here: [https://facebook.github.io/create-react-app/docs/advanced-configuration](https://facebook.github.io/create-react-app/docs/advanced-configuration)
-
-### Deployment
-
-This section has moved here: [https://facebook.github.io/create-react-app/docs/deployment](https://facebook.github.io/create-react-app/docs/deployment)
-
-### `npm run build` fails to minify
-
-This section has moved here: [https://facebook.github.io/create-react-app/docs/troubleshooting#npm-run-build-fails-to-minify](https://facebook.github.io/create-react-app/docs/troubleshooting#npm-run-build-fails-to-minify)
+4️⃣ Frontend Setup
+Step 1: Go to frontend folder
+cd frontend
+Step 2: Install dependencies
+npm install
+Step 4: Start frontend
+npm start
