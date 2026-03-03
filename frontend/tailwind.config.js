@@ -1,48 +1,20 @@
 /** @type {import('tailwindcss').Config} */
-export default {
-  darkMode: ["class"],
-  content: [
-    "./index.html",
-    "./src/**/*.{js,ts,jsx,tsx}",
-  ],
+module.exports = {
+  content: ["./src/**/*.{js,jsx,ts,tsx}"],
   theme: {
     extend: {
       colors: {
-        background: "var(--color-background)",
-        foreground: "var(--color-foreground)",
-
-        card: "var(--color-card)",
-        "card-foreground": "var(--color-card-foreground)",
-
-        popover: "var(--color-popover)",
-        "popover-foreground": "var(--color-popover-foreground)",
-
-        primary: "var(--color-primary)",
-        "primary-foreground": "var(--color-primary-foreground)",
-
-        secondary: "var(--color-secondary)",
-        "secondary-foreground": "var(--color-secondary-foreground)",
-
-        muted: "var(--color-muted)",
-        "muted-foreground": "var(--color-muted-foreground)",
-
-        accent: "var(--color-accent)",
-        "accent-foreground": "var(--color-accent-foreground)",
-
-        destructive: "var(--color-destructive)",
-        "destructive-foreground": "var(--color-destructive-foreground)",
-
-        border: "var(--color-border)",
-        ring: "var(--color-ring)",
+        background: "var(--background)",
+        foreground: "var(--foreground)",
+        primary: "var(--primary)",
+        secondary: "var(--secondary)",
+        accent: "var(--accent)",
+        muted: "var(--muted)",
+        border: "var(--border)",
+        ring: "var(--ring)",
       },
       borderRadius: {
-        sm: "var(--radius-sm)",
-        md: "var(--radius-md)",
-        lg: "var(--radius-lg)",
-        xl: "var(--radius-xl)",
-      },
-      fontFamily: {
-        sans: ["Poppins", "sans-serif"],
+        lg: "var(--radius)",
       },
     },
   },
