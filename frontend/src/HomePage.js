@@ -1,4 +1,5 @@
 import { Link } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
 import {
   Wrench,
   ArrowRight,
@@ -39,6 +40,7 @@ const howItWorksSteps = [
 ];
 
 export default function HomePage() {
+  const navigate = useNavigate();
   return (
     <div className="min-h-screen bg-background">
       {/* Navigation */}
@@ -59,6 +61,7 @@ export default function HomePage() {
                 <Button
                   variant="outline"
                   className="border-primary text-primary hover:bg-accent px-6"
+                  onClick={() => navigate("/login")}
                 >
                   Login
                 </Button>
@@ -97,9 +100,7 @@ export default function HomePage() {
                   <div className="w-20 h-20 bg-accent rounded-2xl flex items-center justify-center mx-auto mb-6 group-hover:scale-110 transition-transform">
                     <User className="w-10 h-10 text-primary" />
                   </div>
-                  <h3 className="text-2xl font-bold mb-3">
-                    I'm a Customer
-                  </h3>
+                  <h3 className="text-2xl font-bold mb-3">I'm a Customer</h3>
                   <p className="text-muted-foreground mb-6">
                     Find trusted professionals to help with your service needs
                   </p>
@@ -160,7 +161,10 @@ export default function HomePage() {
 
           <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-8">
             {howItWorksSteps.map((step, index) => (
-              <div key={index} className="bg-accent/30 rounded-2xl p-8 text-center">
+              <div
+                key={index}
+                className="bg-accent/30 rounded-2xl p-8 text-center"
+              >
                 <div className="w-16 h-16 bg-primary rounded-xl flex items-center justify-center mx-auto mb-4">
                   <step.icon className="w-8 h-8 text-white" />
                 </div>
