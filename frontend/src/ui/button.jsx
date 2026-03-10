@@ -1,19 +1,13 @@
+// src/components/ui/button.jsx
 import React from "react";
 
-export function Button({
-  className = "",
-  variant = "default",
-  size = "md",
-  ...props
-}) {
+export function Button({ children, variant = "default", size = "md", className = "", ...props }) {
   const base =
     "inline-flex items-center justify-center gap-2 rounded-xl font-medium transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-ring shadow-sm hover:shadow-md";
 
   const variants = {
-    default:
-      "bg-primary text-primary-foreground hover:brightness-110",
-    outline:
-      "border border-border text-foreground hover:bg-accent",
+    default: "bg-blue-500 text-white hover:brightness-110",
+    outline: "border border-gray-300 text-gray-700 hover:bg-gray-100",
   };
 
   const sizes = {
@@ -26,6 +20,8 @@ export function Button({
     <button
       className={`${base} ${variants[variant]} ${sizes[size]} ${className}`}
       {...props}
-    />
+    >
+      {children}
+    </button>
   );
 }
