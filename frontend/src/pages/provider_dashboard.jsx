@@ -69,12 +69,11 @@ export default function ProviderDashboard() {
           </Link>
 
           <Link
-            to="#"
+            to="/bids-history" // <-- set the actual route for your Bids History page
             className="flex items-center gap-3 p-3 rounded-lg hover:bg-gray-100 transition-colors"
-          >
+            >
             <ClipboardList size={18} /> Bids History
-          </Link>
-
+            </Link>
           <Link
             to="#"
             className="flex items-center gap-3 p-3 rounded-lg hover:bg-gray-100 transition-colors"
@@ -83,11 +82,11 @@ export default function ProviderDashboard() {
           </Link>
 
           <Link
-            to="#"
+            to="/provider-profile"
             className="flex items-center gap-3 p-3 rounded-lg hover:bg-gray-100 transition-colors"
-          >
+            >
             <User size={18} /> Profile
-          </Link>
+            </Link>
         </nav>
       </aside>
 

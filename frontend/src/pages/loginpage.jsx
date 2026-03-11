@@ -27,7 +27,7 @@ export default function LoginPage({ onNavigateToSignup }) {
     // Navigate to dashboard based on role
     if (role === "customer") {
       navigate("/customer-dashboard"); // Correct: router handles layout + outlet
-    } else {
+    } else if (role === "provider") {
       navigate("/provider-dashboard");
     }
   };
