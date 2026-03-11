@@ -265,7 +265,6 @@ function Card({ icon, color, label, value, extra }) {
   );
 }
 
-/* Filter Bar */
 function FilterBar({ filterStatus, setFilterStatus }) {
   return (
     <div className="bg-white rounded-2xl border border-border p-6 shadow-sm flex items-center justify-between">
@@ -303,7 +302,6 @@ function JobsList({ jobs }) {
   );
 }
 
-/* Single Job Item */
 function JobItem({ job }) {
   return (
     <div>
@@ -326,7 +324,7 @@ function JobItem({ job }) {
             <Info icon={<Calendar className="w-4 h-4 text-muted-foreground" />} label="Date" value={job.date} />
           </div>
 
-          {/* Completed Job Extra */}
+          {}
           {job.status === "Completed" && job.rating && (
             <div className="mt-4 p-4 bg-yellow-50 rounded-xl border border-yellow-200">
               <div className="flex items-center justify-between mb-2">
@@ -374,7 +372,6 @@ function JobItem({ job }) {
   );
 }
 
-/* Info Item */
 function Info({ icon, label, value, valueClass }) {
   return (
     <div className="flex items-center gap-2 text-sm">
