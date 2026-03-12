@@ -10,6 +10,7 @@ import ProviderDashboard from "./pages/provider_dashboard";
 import { BidsHistoryPage } from "./pages/bids_history";
 import ProviderProfilePage from "./pages/provider_profile";
 
+
 export default function App() {
   return (
     <Router>
@@ -31,7 +32,6 @@ export default function App() {
         <Route path="/provider-dashboard" element={<ProviderDashboard />} />
         <Route path="/provider-profile" element={<ProviderProfilePage />} />
         <Route path="/bids-history" element={<BidsHistoryPage />} />
-
         {/* Fallback (ALWAYS LAST) */}
         <Route path="*" element={<Navigate to="/" />} />
 
