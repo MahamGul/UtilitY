@@ -88,7 +88,7 @@ export function MyBidsPage() {
 
         <div className="p-6 border-b">
           <Link to="/" className="flex items-center gap-3">
-            <div className="w-10 h-10 bg-blue-500 rounded-xl flex items-center justify-center">
+            <div className="w-10 h-10 bg-sky-500 rounded-xl flex items-center justify-center">
               <Wrench className="text-white" />
             </div>
             <span className="font-bold text-xl">UtilitY</span>
