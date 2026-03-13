@@ -79,10 +79,10 @@ export default function ServiceHistoryPage() {
       service.id.toLowerCase().includes(searchQuery.toLowerCase())
     );
 
-  const totalSpent = serviceHistory
-    .filter((s) => s.status === "completed")
-    .reduce((sum, s) => sum + s.amount, 0);
-
+  const totalSpent = filteredServices
+  .filter((s) => s.status === "completed")
+  .reduce((sum, s) => sum + s.amount, 0);
+  
   return (
     <div className="p-6">
 
