@@ -68,16 +68,15 @@ export default function CustomerLayout() {
             My Requests
           </Link>
 
-          {/* NEW: Service History */}
+          {/* FIXED: Correct route */}
           <Link
-            to="/customer-dashboard/service-history"
+            to="/customer-dashboard/history"
             className="flex items-center gap-3 px-4 py-3 rounded-xl hover:bg-blue-100 font-medium"
           >
             <History className="w-5 h-5" />
             Service History
           </Link>
 
-          {/* Messages */}
           <Link
             to="/customer-dashboard/messages"
             className="flex items-center gap-3 px-4 py-3 rounded-xl hover:bg-blue-100 font-medium"
@@ -101,7 +100,7 @@ export default function CustomerLayout() {
 
       </aside>
 
-      {/* Main content */}
+      {/* Main Content */}
       <main className="flex-1 p-8">
         <Outlet />
       </main>
