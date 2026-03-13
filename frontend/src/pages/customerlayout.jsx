@@ -1,7 +1,14 @@
-import { Link, Outlet } from "react-router-dom";
-import { LayoutDashboard, User, PlusCircle, ClipboardList } from "lucide-react";
+import { Link, Outlet, useNavigate } from "react-router-dom";
+import { LayoutDashboard, User, PlusCircle, ClipboardList, MessageSquare, LogOut } from "lucide-react";
 
 export default function CustomerLayout() {
+
+  const navigate = useNavigate();
+
+  const handleLogout = () => {
+    navigate("/login");
+  };
+
   return (
     <div className="flex min-h-screen">
       {/* Sidebar */}
@@ -47,12 +54,31 @@ export default function CustomerLayout() {
             <ClipboardList className="w-5 h-5" />
             My Requests
           </Link>
+
+          {/* Messages */}
+          <Link
+            to="/customer-dashboard/messages"
+            className="flex items-center gap-3 px-4 py-3 rounded-xl hover:bg-blue-100 hover:text-gray-900 font-medium"
+          >
+            <MessageSquare className="w-5 h-5" />
+            Messages
+          </Link>
         </nav>
+
+        {/* Logout button at bottom */}
+        <div className="p-4 border-t border-gray-200">
+          <button
+            onClick={handleLogout}
+            className="w-full flex items-center gap-3 px-4 py-3 rounded-xl hover:bg-red-100 text-red-600 font-medium"
+          >
+            <LogOut className="w-5 h-5" />
+            Logout
+          </button>
+        </div>
       </aside>
 
       {/* Main content area */}
       <main className="flex-1 p-8">
-        {/* THIS IS IMPORTANT: nested route content will render here */}
         <Outlet />
       </main>
     </div>

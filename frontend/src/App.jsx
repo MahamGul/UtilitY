@@ -5,6 +5,7 @@ import LoginPage from "./pages/loginpage";
 import CustomerLayout from "./pages/customerlayout";
 import CustomerDashboard from "./pages/customerdashboard";
 import { CustomerProfilePage } from "./pages/customer-profile";
+import { PostRequestPage } from "./pages/postrequest"; // ✅ added
 
 import ProviderDashboard from "./pages/provider_dashboard";
 import { BidsHistoryPage } from "./pages/bids_history";
@@ -24,6 +25,7 @@ export default function App() {
         <Route path="/customer-dashboard" element={<CustomerLayout />}>
           <Route index element={<CustomerDashboard />} />
           <Route path="profile" element={<CustomerProfilePage />} />
+          <Route path="post-request" element={<PostRequestPage />} /> {/* ✅ added */}
         </Route>
 
         {/* Provider area */}
