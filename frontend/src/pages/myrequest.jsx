@@ -1,10 +1,15 @@
 import { Link, useNavigate } from "react-router-dom";
-import { 
-  PlusCircle, Clock, CheckCircle, RefreshCw, DollarSign
+import {
+  PlusCircle,
+  Clock,
+  CheckCircle,
+  RefreshCw,
+  DollarSign
 } from "lucide-react";
 import { useState } from "react";
 
-// Sample active requests data (plain JS)
+/* ---------------- SAMPLE DATA ---------------- */
+
 const activeRequestsData = [
   {
     id: "REQ-001",
@@ -48,46 +53,86 @@ const activeRequestsData = [
   }
 ];
 
-// Status configuration
+
+/* ---------------- HELPERS ---------------- */
+
 const getStatusConfig = (status) => {
   switch (status) {
     case "pending":
-      return { color: "bg-yellow-100 text-yellow-700 border-yellow-200", icon: Clock, label: "Pending" };
+      return {
+        color: "bg-yellow-100 text-yellow-700 border-yellow-200",
+        icon: Clock,
+        label: "Pending"
+      };
+
     case "accepted":
-      return { color: "bg-blue-100 text-blue-700 border-blue-200", icon: CheckCircle, label: "Accepted" };
+      return {
+        color: "bg-blue-100 text-blue-700 border-blue-200",
+        icon: CheckCircle,
+        label: "Accepted"
+      };
+
     case "in-progress":
-      return { color: "bg-purple-100 text-purple-700 border-purple-200", icon: RefreshCw, label: "In Progress" };
+      return {
+        color: "bg-purple-100 text-purple-700 border-purple-200",
+        icon: RefreshCw,
+        label: "In Progress"
+      };
+
     default:
-      return { color: "", icon: Clock, label: status };
+      return {
+        color: "",
+        icon: Clock,
+        label: status
+      };
   }
 };
 
-// Urgency color helper
 const getUrgencyColor = (urgency) => {
   switch (urgency) {
-    case "high": return "bg-red-100 text-red-700 border-red-200";
-    case "medium": return "bg-orange-100 text-orange-700 border-orange-200";
-    case "low": return "bg-green-100 text-green-700 border-green-200";
-    default: return "";
+    case "high":
+      return "bg-red-100 text-red-700 border-red-200";
+
+    case "medium":
+      return "bg-orange-100 text-orange-700 border-orange-200";
+
+    case "low":
+      return "bg-green-100 text-green-700 border-green-200";
+
+    default:
+      return "";
   }
 };
 
+
+/* ---------------- COMPONENT ---------------- */
+
 export function ActiveRequestsPage() {
+
   const navigate = useNavigate();
+
   const [filterStatus, setFilterStatus] = useState("all");
   const [searchQuery, setSearchQuery] = useState("");
 
-  // Filter requests based on status and search query
+
+  /* ------------ FILTERING ------------ */
+
   const filteredRequests = activeRequestsData.filter((request) => {
-    const matchesFilter = filterStatus === "all" || request.status === filterStatus;
-    const matchesSearch = 
+
+    const matchesFilter =
+      filterStatus === "all" || request.status === filterStatus;
+
+    const matchesSearch =
       request.serviceType.toLowerCase().includes(searchQuery.toLowerCase()) ||
       request.description.toLowerCase().includes(searchQuery.toLowerCase()) ||
       request.id.toLowerCase().includes(searchQuery.toLowerCase());
+
     return matchesFilter && matchesSearch;
   });
 
-  // Stats (optional, for display somewhere)
+
+  /* ------------ STATS ------------ */
+
   const stats = {
     pending: activeRequestsData.filter(r => r.status === "pending").length,
     accepted: activeRequestsData.filter(r => r.status === "accepted").length,
@@ -95,103 +140,325 @@ export function ActiveRequestsPage() {
     totalResponses: activeRequestsData.reduce((sum, r) => sum + r.responses, 0)
   };
 
+
+  /* ------------ UI ------------ */
+
   return (
-    <div className="min-h-screen bg-background flex flex-col lg:flex-row">
-      {/* Sidebar / Filters */}
-      <div className="p-4">
+
+    <div className="min-h-screen bg-gray-50 p-6">
+
+      {/* HEADER */}
+
+      <div className="flex justify-between items-center mb-8">
+
+        <div>
+          <h1 className="text-2xl font-bold">
+            Active Requests
+          </h1>
+
+          <p className="text-gray-500">
+            Track and manage your ongoing service requests
+          </p>
+        </div>
+
+        <button
+          onClick={() =>
+            navigate("/customer-dashboard/post-request")
+          }
+          className="flex items-center bg-blue-600 text-white px-4 py-2 rounded-xl hover:bg-blue-700 transition"
+        >
+          <PlusCircle className="w-4 h-4 mr-2" />
+          New Request
+        </button>
+
+      </div>
+
+
+
+      {/* STATS CARDS */}
+
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
+
+        <div className="bg-white p-4 rounded-xl border shadow-sm flex items-center gap-3">
+
+          <Clock className="text-yellow-600" />
+
+          <div>
+            <p className="text-sm text-gray-500">Pending</p>
+            <p className="font-bold text-lg">{stats.pending}</p>
+          </div>
+
+        </div>
+
+
+        <div className="bg-white p-4 rounded-xl border shadow-sm flex items-center gap-3">
+
+          <CheckCircle className="text-blue-600" />
+
+          <div>
+            <p className="text-sm text-gray-500">Accepted</p>
+            <p className="font-bold text-lg">{stats.accepted}</p>
+          </div>
+
+        </div>
+
+
+        <div className="bg-white p-4 rounded-xl border shadow-sm flex items-center gap-3">
+
+          <RefreshCw className="text-purple-600" />
+
+          <div>
+            <p className="text-sm text-gray-500">In Progress</p>
+            <p className="font-bold text-lg">{stats.inProgress}</p>
+          </div>
+
+        </div>
+
+
+        <div className="bg-white p-4 rounded-xl border shadow-sm flex items-center gap-3">
+
+          <DollarSign className="text-green-600" />
+
+          <div>
+            <p className="text-sm text-gray-500">Total Offers</p>
+            <p className="font-bold text-lg">{stats.totalResponses}</p>
+          </div>
+
+        </div>
+
+      </div>
+
+
+
+      {/* SEARCH + FILTER */}
+
+      <div className="flex flex-col md:flex-row justify-between gap-4 mb-6">
+
+        {/* FILTER BUTTONS */}
+
+        <div className="flex gap-2 flex-wrap">
+
+          {["all", "pending", "accepted", "in-progress"].map((status) => (
+
+            <button
+              key={status}
+              onClick={() => setFilterStatus(status)}
+              className={`px-4 py-2 rounded-xl border text-sm transition
+              ${filterStatus === status
+                  ? "bg-blue-600 text-white"
+                  : "bg-white text-gray-700 hover:bg-gray-100"
+                }`}
+            >
+              {status === "all"
+                ? "All Requests"
+                : getStatusConfig(status).label}
+            </button>
+
+          ))}
+
+        </div>
+
+
+        {/* SEARCH */}
+
         <input
           type="text"
           placeholder="Search requests..."
           value={searchQuery}
-          onChange={(e) => setSearchQuery(e.target.value)}
-          className="pl-10 h-11 bg-gray-100 border-2 rounded-xl w-full sm:w-64 mb-2"
+          onChange={(e) =>
+            setSearchQuery(e.target.value)
+          }
+          className="h-11 px-4 rounded-xl border bg-white w-full md:w-72"
         />
 
-        {/* Status filter buttons */}
-        <div className="flex gap-2 mb-4">
-          {["all", "pending", "accepted", "in-progress"].map((status) => (
-            <button
-              key={status}
-              onClick={() => setFilterStatus(status)}
-              className={`px-3 py-1 rounded-xl border ${filterStatus === status ? "bg-blue-600 text-white" : "bg-white text-gray-700"}`}
-            >
-              {status === "all" ? "All" : getStatusConfig(status).label}
-            </button>
-          ))}
-        </div>
-
-        {/* New Request Button */}
-        <button
-          onClick={() => navigate("/customer-dashboard/post-request")}
-          className="flex items-center bg-blue-600 text-white px-4 py-2 rounded-xl mt-2"
-        >
-          <PlusCircle className="w-4 h-4 mr-2" /> New Request
-        </button>
       </div>
 
-      {/* Requests Grid */}
-      <div className="grid grid-cols-1 xl:grid-cols-2 gap-6 p-6">
+
+
+      {/* REQUESTS GRID */}
+
+      <div className="grid md:grid-cols-2 xl:grid-cols-3 gap-6">
+
         {filteredRequests.map((request) => {
-          const StatusIcon = getStatusConfig(request.status).icon;
+
+          const statusConfig = getStatusConfig(request.status);
+          const StatusIcon = statusConfig.icon;
+
           return (
-            <div key={request.id} className="bg-white rounded-2xl border p-6 shadow-sm">
+
+            <div
+              key={request.id}
+              className="bg-white rounded-2xl border p-5 shadow-sm hover:shadow-md transition"
+            >
+
+              {/* CARD HEADER */}
+
               <div className="flex justify-between mb-2">
+
                 <div>
-                  <h3 className="font-bold">{request.serviceType}</h3>
-                  <p className="text-sm text-gray-500">{request.id}</p>
+                  <h3 className="font-semibold text-lg">
+                    {request.serviceType}
+                  </h3>
+
+                  <p className="text-xs text-gray-400">
+                    {request.id}
+                  </p>
                 </div>
-                <span className={`px-2 py-1 rounded-lg text-xs font-semibold border ${getUrgencyColor(request.urgency)}`}>
+
+
+                <span
+                  className={`px-2 py-1 text-xs rounded-lg border ${getUrgencyColor(
+                    request.urgency
+                  )}`}
+                >
                   {request.urgency}
                 </span>
-              </div>
-              <p className="text-gray-600 mb-2">{request.description}</p>
-              <div className="flex gap-4 text-sm mb-2">
-                <div className="flex items-center gap-1"><DollarSign className="w-4 h-4" /> {request.budget}</div>
-                <div className="flex items-center gap-1"><Clock className="w-4 h-4" /> {request.datePosted}</div>
+
               </div>
 
-              {/* Provider info */}
-              {request.provider && (
-                <div className="bg-gray-50 p-2 rounded-lg mb-2 flex justify-between items-center">
-                  <div className="flex items-center gap-2">
-                    <img src={request.provider.image} alt={request.provider.name} className="w-10 h-10 rounded-full" />
-                    <div>
-                      <p className="font-semibold">{request.provider.name}</p>
-                      <span className="text-yellow-500">★ {request.provider.rating}</span>
-                    </div>
-                  </div>
-                  <div className="flex gap-2">
-                    <a href={`tel:${request.provider.phone}`} className="text-green-600">Call</a>
-                    <Link to="/messages" className="text-blue-600">Message</Link>
-                  </div>
+
+
+              {/* DESCRIPTION */}
+
+              <p className="text-gray-600 text-sm mb-4">
+                {request.description}
+              </p>
+
+
+
+              {/* INFO */}
+
+              <div className="flex gap-4 text-sm text-gray-500 mb-4">
+
+                <div className="flex items-center gap-1">
+                  <DollarSign className="w-4 h-4" />
+                  {request.budget}
                 </div>
+
+                <div className="flex items-center gap-1">
+                  <Clock className="w-4 h-4" />
+                  {request.datePosted}
+                </div>
+
+              </div>
+
+
+
+              {/* STATUS BADGE */}
+
+              <div
+                className={`flex items-center gap-2 text-xs px-3 py-1 rounded-lg border w-fit mb-4 ${statusConfig.color}`}
+              >
+                <StatusIcon className="w-3 h-3" />
+                {statusConfig.label}
+              </div>
+
+
+
+              {/* PROVIDER */}
+
+              {request.provider && (
+
+                <div className="bg-gray-50 p-3 rounded-lg flex justify-between items-center mb-4">
+
+                  <div className="flex items-center gap-2">
+
+                    <img
+                      src={request.provider.image}
+                      alt={request.provider.name}
+                      className="w-9 h-9 rounded-full"
+                    />
+
+                    <div>
+                      <p className="text-sm font-semibold">
+                        {request.provider.name}
+                      </p>
+
+                      <p className="text-xs text-yellow-500">
+                        ★ {request.provider.rating}
+                      </p>
+                    </div>
+
+                  </div>
+
+
+                  <div className="flex gap-2 text-sm">
+
+                    <a
+                      href={`tel:${request.provider.phone}`}
+                      className="text-green-600"
+                    >
+                      Call
+                    </a>
+
+                    <Link
+                      to="/messages"
+                      className="text-blue-600"
+                    >
+                      Message
+                    </Link>
+
+                  </div>
+
+                </div>
+
               )}
 
-              {/* Actions */}
+
+
+              {/* ACTION BUTTONS */}
+
               <div className="flex gap-2">
+
                 {request.status === "pending" && (
                   <>
-                    <button className="flex-1 bg-gray-200 px-4 py-2 rounded-xl">View Offers ({request.responses})</button>
-                    <button className="px-3 py-2 text-red-600 border rounded-xl">Cancel</button>
+                    <button className="flex-1 bg-gray-100 px-3 py-2 rounded-xl text-sm">
+                      View Offers ({request.responses})
+                    </button>
+
+                    <button className="px-3 py-2 border rounded-xl text-red-600 text-sm">
+                      Cancel
+                    </button>
                   </>
                 )}
+
+
+
                 {request.status === "accepted" && (
                   <>
-                    <button className="flex-1 bg-blue-600 text-white px-4 py-2 rounded-xl">Contact Provider</button>
-                    <button className="flex-1 border px-4 py-2 rounded-xl">Reschedule</button>
+                    <button className="flex-1 bg-blue-600 text-white px-3 py-2 rounded-xl text-sm">
+                      Contact Provider
+                    </button>
+
+                    <button className="flex-1 border px-3 py-2 rounded-xl text-sm">
+                      Reschedule
+                    </button>
                   </>
                 )}
+
+
+
                 {request.status === "in-progress" && (
                   <>
-                    <button className="flex-1 bg-green-600 text-white px-4 py-2 rounded-xl">Mark Complete</button>
-                    <button className="px-4 py-2 border rounded-xl">Call</button>
+                    <button className="flex-1 bg-green-600 text-white px-3 py-2 rounded-xl text-sm">
+                      Mark Complete
+                    </button>
+
+                    <button className="px-3 py-2 border rounded-xl text-sm">
+                      Call
+                    </button>
                   </>
                 )}
+
               </div>
+
             </div>
+
           );
         })}
+
       </div>
+
     </div>
   );
 }

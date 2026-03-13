@@ -1,5 +1,13 @@
 import { Link, Outlet, useNavigate } from "react-router-dom";
-import { LayoutDashboard, User, PlusCircle, ClipboardList, MessageSquare, LogOut } from "lucide-react";
+import { 
+  LayoutDashboard, 
+  User, 
+  PlusCircle, 
+  ClipboardList, 
+  MessageSquare, 
+  LogOut,
+  History
+} from "lucide-react";
 
 export default function CustomerLayout() {
 
@@ -11,8 +19,11 @@ export default function CustomerLayout() {
 
   return (
     <div className="flex min-h-screen">
+
       {/* Sidebar */}
       <aside className="w-64 bg-white border-r flex flex-col shadow-sm">
+
+        {/* Logo */}
         <div className="p-6 border-b border-gray-200">
           <Link to="/customer-dashboard" className="flex items-center gap-3">
             <div className="w-10 h-10 bg-blue-600 rounded-xl flex items-center justify-center">
@@ -22,10 +33,12 @@ export default function CustomerLayout() {
           </Link>
         </div>
 
+        {/* Navigation */}
         <nav className="flex-1 p-4 space-y-2">
+
           <Link
             to="/customer-dashboard"
-            className="flex items-center gap-3 px-4 py-3 rounded-xl hover:bg-blue-100 hover:text-gray-900 font-medium"
+            className="flex items-center gap-3 px-4 py-3 rounded-xl hover:bg-blue-100 font-medium"
           >
             <LayoutDashboard className="w-5 h-5" />
             Dashboard
@@ -33,7 +46,7 @@ export default function CustomerLayout() {
 
           <Link
             to="/customer-dashboard/profile"
-            className="flex items-center gap-3 px-4 py-3 rounded-xl hover:bg-blue-100 hover:text-gray-900 font-medium"
+            className="flex items-center gap-3 px-4 py-3 rounded-xl hover:bg-blue-100 font-medium"
           >
             <User className="w-5 h-5" />
             Profile
@@ -41,7 +54,7 @@ export default function CustomerLayout() {
 
           <Link
             to="/customer-dashboard/post-request"
-            className="flex items-center gap-3 px-4 py-3 rounded-xl hover:bg-blue-100 hover:text-gray-900 font-medium"
+            className="flex items-center gap-3 px-4 py-3 rounded-xl hover:bg-blue-100 font-medium"
           >
             <PlusCircle className="w-5 h-5" />
             Post Request
@@ -49,23 +62,33 @@ export default function CustomerLayout() {
 
           <Link
             to="/customer-dashboard/my-requests"
-            className="flex items-center gap-3 px-4 py-3 rounded-xl hover:bg-blue-100 hover:text-gray-900 font-medium"
+            className="flex items-center gap-3 px-4 py-3 rounded-xl hover:bg-blue-100 font-medium"
           >
             <ClipboardList className="w-5 h-5" />
             My Requests
           </Link>
 
+          {/* NEW: Service History */}
+          <Link
+            to="/customer-dashboard/service-history"
+            className="flex items-center gap-3 px-4 py-3 rounded-xl hover:bg-blue-100 font-medium"
+          >
+            <History className="w-5 h-5" />
+            Service History
+          </Link>
+
           {/* Messages */}
           <Link
             to="/customer-dashboard/messages"
-            className="flex items-center gap-3 px-4 py-3 rounded-xl hover:bg-blue-100 hover:text-gray-900 font-medium"
+            className="flex items-center gap-3 px-4 py-3 rounded-xl hover:bg-blue-100 font-medium"
           >
             <MessageSquare className="w-5 h-5" />
             Messages
           </Link>
+
         </nav>
 
-        {/* Logout button at bottom */}
+        {/* Logout */}
         <div className="p-4 border-t border-gray-200">
           <button
             onClick={handleLogout}
@@ -75,12 +98,14 @@ export default function CustomerLayout() {
             Logout
           </button>
         </div>
+
       </aside>
 
-      {/* Main content area */}
+      {/* Main content */}
       <main className="flex-1 p-8">
         <Outlet />
       </main>
+
     </div>
   );
 }
