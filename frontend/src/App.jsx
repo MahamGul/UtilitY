@@ -9,6 +9,7 @@ import { CustomerProfilePage } from "./pages/customer-profile";
 import ProviderDashboard from "./pages/provider_dashboard";
 import { BidsHistoryPage } from "./pages/bids_history";
 import ProviderProfilePage from "./pages/provider_profile";
+import { MyBidsPage } from "./pages/my_bids";
 
 
 export default function App() {
@@ -16,10 +17,7 @@ export default function App() {
     <Router>
       <Routes>
 
-        {/* Home page */}
         <Route path="/" element={<HomePage />} />
-
-        {/* Login */}
         <Route path="/login" element={<LoginPage />} />
 
         {/* Customer area */}
@@ -32,6 +30,8 @@ export default function App() {
         <Route path="/provider-dashboard" element={<ProviderDashboard />} />
         <Route path="/provider-profile" element={<ProviderProfilePage />} />
         <Route path="/bids-history" element={<BidsHistoryPage />} />
+        <Route path="/my-bids" element={<MyBidsPage />} />  
+
         {/* Fallback (ALWAYS LAST) */}
         <Route path="*" element={<Navigate to="/" />} />
 
