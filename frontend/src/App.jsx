@@ -5,19 +5,20 @@ import LoginPage from "./pages/loginpage";
 import CustomerLayout from "./pages/customerlayout";
 import CustomerDashboard from "./pages/customerdashboard";
 import { CustomerProfilePage } from "./pages/customer-profile";
-import { PostRequestPage } from "./pages/postrequest"; // ✅ added
+import { ActiveRequestsPage } from "./pages/myrequest";
+import { PostRequestPage } from "./pages/postrequest"; // ✅ import PostRequestPage
 
 import ProviderDashboard from "./pages/provider_dashboard";
 import { BidsHistoryPage } from "./pages/bids_history";
 import ProviderProfilePage from "./pages/provider_profile";
 import { MyBidsPage } from "./pages/my_bids";
 
-
 export default function App() {
   return (
     <Router>
       <Routes>
 
+        {/* Public routes */}
         <Route path="/" element={<HomePage />} />
         <Route path="/login" element={<LoginPage />} />
 
@@ -25,7 +26,8 @@ export default function App() {
         <Route path="/customer-dashboard" element={<CustomerLayout />}>
           <Route index element={<CustomerDashboard />} />
           <Route path="profile" element={<CustomerProfilePage />} />
-          <Route path="post-request" element={<PostRequestPage />} /> {/* ✅ added */}
+          <Route path="my-requests" element={<ActiveRequestsPage />} /> {/* My Requests page */}
+          <Route path="post-request" element={<PostRequestPage />} /> {/* ✅ Post Request page */}
         </Route>
 
         {/* Provider area */}
@@ -34,7 +36,7 @@ export default function App() {
         <Route path="/bids-history" element={<BidsHistoryPage />} />
         <Route path="/my-bids" element={<MyBidsPage />} />  
 
-        {/* Fallback (ALWAYS LAST) */}
+        {/* Fallback route */}
         <Route path="*" element={<Navigate to="/" />} />
 
       </Routes>
