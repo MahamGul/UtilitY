@@ -2,15 +2,16 @@ import { BrowserRouter as Router, Routes, Route, Navigate } from "react-router-d
 
 // Public pages
 import HomePage from "./HomePage";
-import LoginPage from "./pages/loginpage";
+import LoginPage from "./pages/loginpage";   // ✅ fixed case
+import SignupPage from "./pages/SignUp";     // ✅ fixed path
 
 // Customer pages
-import CustomerLayout from "./pages/customerlayout";
+import CustomerLayout from "./pages/customerlayout";   // ✅ consistent casing
 import CustomerDashboard from "./pages/customerdashboard";
 import { CustomerProfilePage } from "./pages/customer-profile";
 import { ActiveRequestsPage } from "./pages/myrequest";
 import { PostRequestPage } from "./pages/postrequest";
-import ServiceHistoryPage from "./pages/servicehistory"; // ✅ default export
+import ServiceHistoryPage from "./pages/servicehistory";
 import { CustomerAvailableOffers } from "./pages/customeravailableoffers";
 
 // Provider pages
@@ -27,8 +28,9 @@ export default function App() {
         {/* Public routes */}
         <Route path="/" element={<HomePage />} />
         <Route path="/login" element={<LoginPage />} />
+        <Route path="/signup" element={<SignupPage />} />
 
-        {/* Customer area */}
+        {/* Customer area (Nested Routes) */}
         <Route path="/customer-dashboard" element={<CustomerLayout />}>
           <Route index element={<CustomerDashboard />} />
           <Route path="profile" element={<CustomerProfilePage />} />
@@ -37,8 +39,11 @@ export default function App() {
           <Route path="history" element={<ServiceHistoryPage />} />
         </Route>
 
-        {/* Customer modal / popup route */}
-        <Route path="/customer-available-offers" element={<CustomerAvailableOffers />} />
+        {/* Customer offers page */}
+        <Route
+          path="/customer-available-offers"
+          element={<CustomerAvailableOffers />}
+        />
 
         {/* Provider area */}
         <Route path="/provider-dashboard" element={<ProviderDashboard />} />
