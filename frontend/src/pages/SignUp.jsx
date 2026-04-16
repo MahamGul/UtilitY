@@ -80,21 +80,23 @@ export default function SignupPage() {
         </div>
 
         <form onSubmit={handleSignup}>
-          <input
-            type="email"
-            placeholder="Email"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            style={{ width: "100%", marginBottom: "10px", padding: "10px" }}
-          />
+        <input
+  type="email"
+  placeholder="Email"
+  value={email}
+  onChange={(e) => setEmail(e.target.value)}
+  autoComplete="off"
+  style={{ width: "100%", marginBottom: "10px", padding: "10px" }}
+/>
 
-          <input
-            type="password"
-            placeholder="Password"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            style={{ width: "100%", marginBottom: "10px", padding: "10px" }}
-          />
+<input
+  type="password"
+  placeholder="Password"
+  value={password}
+  onChange={(e) => setPassword(e.target.value)}
+  autoComplete="new-password"
+  style={{ width: "100%", marginBottom: "10px", padding: "10px" }}
+/>
 
           <button type="submit" style={{ width: "100%", padding: "10px" }}>
             Create Account

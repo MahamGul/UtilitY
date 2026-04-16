@@ -10,13 +10,13 @@ const tokens = {
   gradientLogin: "linear-gradient(122deg, #e0f2fe, #bae6fd, #a7f3d0)",
 };
 
-export default function LoginPage({ onNavigateToSignup }) {
+export default function LoginPage() {
   const [role, setRole] = useState("customer");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const navigate = useNavigate();
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
 
     if (!email || !password) {
@@ -24,17 +24,44 @@ export default function LoginPage({ onNavigateToSignup }) {
       return;
     }
 
-    // Navigate to dashboard based on role
-    if (role === "customer") {
-      navigate("/customer-dashboard"); // Correct: router handles layout + outlet
-    } else if (role === "provider") {
-      navigate("/provider-dashboard");
+    try {
+      const res = await fetch("http://127.0.0.1:8000/login", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          email,
+          password,
+          role,
+        }),
+      });
+
+      const data = await res.json();
+
+      if (!res.ok) {
+        throw new Error(data.detail || "Login failed");
+      }
+
+      alert("Login successful");
+
+      const userRole = data.user.role;
+
+      if (userRole === "customer") {
+        navigate("/customer-dashboard");
+      } else if (userRole === "provider") {
+        navigate("/provider-dashboard");
+      }
+
+    } catch (err) {
+      alert(err.message);
     }
   };
 
   return (
     <div style={{ display: "flex", minHeight: "100vh", fontFamily: tokens.font }}>
-      {/* LEFT HERO SIDE */}
+      
+      {/* LEFT SIDE */}
       <div
         style={{
           flex: 1,
@@ -46,16 +73,19 @@ export default function LoginPage({ onNavigateToSignup }) {
           gap: "32px",
         }}
       >
-        <div style={{ fontSize: "28px", fontWeight: 700, color: "#0c4a6e" }}>⚡ UtilitY</div>
+        <div style={{ fontSize: "28px", fontWeight: 700, color: "#0c4a6e" }}>
+          ⚡ UtilitY
+        </div>
+
         <div>
-          <div style={{ fontSize: "42px", fontWeight: 800, color: "#0c4a6e", lineHeight: 1.2 }}>
+          <div style={{ fontSize: "42px", fontWeight: 800, color: "#0c4a6e" }}>
             Welcome Back!
           </div>
           <p>Connect with trusted service professionals near you.</p>
         </div>
       </div>
 
-      {/* RIGHT LOGIN FORM */}
+      {/* RIGHT SIDE */}
       <div
         style={{
           width: "480px",
@@ -75,109 +105,72 @@ export default function LoginPage({ onNavigateToSignup }) {
             boxShadow: "0 25px 50px rgba(0,0,0,0.12)",
           }}
         >
-          <div style={{ fontSize: "28px", fontWeight: 700, color: "#0c4a6e" }}>Login</div>
-          <div style={{ fontSize: "14px", color: "#64748b", marginBottom: "24px" }}>
-            Sign in to your account to continue
-          </div>
+          <h2>Login</h2>
 
           {/* Role Toggle */}
-          <div
-            style={{
-              display: "flex",
-              backgroundColor: "#f1f5f9",
-              borderRadius: "12px",
-              padding: "4px",
-              marginBottom: "24px",
-            }}
-          >
+          <div style={{ display: "flex", marginBottom: "20px" }}>
             {["customer", "provider"].map((r) => (
               <button
                 key={r}
+                onClick={() => setRole(r)}
                 style={{
                   flex: 1,
                   padding: "10px",
+                  background: role === r ? "#38bdf8" : "#eee",
+                  color: role === r ? "#fff" : "#000",
                   border: "none",
-                  borderRadius: "10px",
-                  fontSize: "14px",
-                  fontWeight: 600,
                   cursor: "pointer",
-                  backgroundColor: role === r ? tokens.primary : "transparent",
-                  color: role === r ? "#fff" : "#64748b",
                 }}
-                onClick={() => setRole(r)}
               >
-                {r === "customer" ? "👤 Customer" : "🔧 Provider"}
+                {r}
               </button>
             ))}
           </div>
 
-          {/* Form */}
           <form onSubmit={handleSubmit}>
-            <div style={{ marginBottom: "16px" }}>
-              <label
-                style={{ display: "block", fontSize: "13px", fontWeight: 600, color: "#374151", marginBottom: "6px" }}
-              >
-                Email
-              </label>
-              <input
-                style={{
-                  width: "100%",
-                  height: "52px",
-                  borderRadius: tokens.radius.input,
-                  border: "1.5px solid #e2e8f0",
-                  padding: "0 16px",
-                }}
-                type="email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                required
-              />
-            </div>
-
-            <div style={{ marginBottom: "16px" }}>
-              <label
-                style={{ display: "block", fontSize: "13px", fontWeight: 600, color: "#374151", marginBottom: "6px" }}
-              >
-                Password
-              </label>
-              <input
-                style={{
-                  width: "100%",
-                  height: "52px",
-                  borderRadius: tokens.radius.input,
-                  border: "1.5px solid #e2e8f0",
-                  padding: "0 16px",
-                }}
-                type="password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                required
-              />
-            </div>
-
-            <button
-              type="submit"
+            <input
+              type="email"
+              placeholder="Email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
               style={{
                 width: "100%",
-                height: "52px",
-                borderRadius: tokens.radius.input,
-                border: "none",
-                background: `linear-gradient(135deg, ${tokens.primary}, ${tokens.primaryDark})`,
-                color: "#fff",
-                fontSize: "16px",
-                fontWeight: 700,
-                cursor: "pointer",
-                marginBottom: "20px",
+                marginBottom: "10px",
+                padding: "10px",
               }}
-            >
-              Login to Account
+            />
+
+            <input
+              type="password"
+              placeholder="Password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              style={{
+                width: "100%",
+                marginBottom: "10px",
+                padding: "10px",
+              }}
+            />
+
+            <button type="submit" style={{ width: "100%", padding: "10px" }}>
+              Login
             </button>
           </form>
 
-          <div>
+          <p style={{ marginTop: "10px" }}>
             Don't have an account?{" "}
-            <button onClick={onNavigateToSignup}>Sign Up Now</button>
-          </div>
+            <button
+              onClick={() => navigate("/SignUp")}
+              style={{
+                background: "none",
+                border: "none",
+                color: "#38bdf8",
+                cursor: "pointer",
+              }}
+            >
+              Sign up
+            </button>
+          </p>
         </div>
       </div>
     </div>
