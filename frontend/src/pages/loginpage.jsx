@@ -12,7 +12,6 @@ const styles = `
     font-family: 'Poppins', sans-serif;
   }
 
-  /* ── LEFT PANEL ── */
   .left-panel {
     flex: 1;
     background: linear-gradient(145deg, #e0f5ff 0%, #b8e8fa 40%, #a8f0d8 100%);
@@ -24,7 +23,6 @@ const styles = `
     overflow: hidden;
   }
 
-  /* subtle grid overlay */
   .left-panel::before {
     content: '';
     position: absolute;
@@ -36,7 +34,6 @@ const styles = `
     pointer-events: none;
   }
 
-  /* decorative circle bottom-right */
   .left-panel::after {
     content: '';
     position: absolute;
@@ -123,10 +120,7 @@ const styles = `
     flex: 1;
     box-shadow: 0 4px 14px rgba(0,0,0,0.06);
   }
-  .stat-number {
-    font-size: 22px;
-    font-weight: 800;
-  }
+  .stat-number { font-size: 22px; font-weight: 800; }
   .stat-number.blue   { color: #0ea5e9; }
   .stat-number.green  { color: #10b981; }
   .stat-number.orange { color: #f59e0b; }
@@ -151,9 +145,7 @@ const styles = `
     color: #374151;
     box-shadow: 0 2px 8px rgba(0,0,0,0.06);
   }
-  .badge-dot {
-    width: 8px; height: 8px; border-radius: 50%;
-  }
+  .badge-dot { width: 8px; height: 8px; border-radius: 50%; }
   .badge-dot.green  { background: #22c55e; }
   .badge-dot.blue   { background: #38bdf8; }
   .badge-dot.purple { background: #8b5cf6; }
@@ -185,7 +177,6 @@ const styles = `
   .feature-title { font-size: 14px; font-weight: 700; }
   .feature-desc  { font-size: 11px; opacity: 0.85; margin-top: 4px; line-height: 1.5; }
 
-  /* ── RIGHT PANEL ── */
   .right-panel {
     width: 500px;
     display: flex;
@@ -217,7 +208,6 @@ const styles = `
   .login-title { text-align: center; font-size: 26px; font-weight: 800; color: #0f172a; }
   .login-sub   { text-align: center; font-size: 13px; color: #94a3b8; margin-top: 6px; margin-bottom: 22px; }
 
-  /* role toggle */
   .role-toggle {
     display: flex;
     background: #dbeafe;
@@ -250,7 +240,6 @@ const styles = `
   }
   .role-icon { font-size: 16px; }
 
-  /* input groups */
   .field-label {
     font-size: 13px;
     font-weight: 600;
@@ -382,6 +371,9 @@ export default function LoginPage() {
 
       if (!res.ok) throw new Error(data.detail || "Login failed");
 
+      // ✅ FIXED: Save user to localStorage so dashboard can read the name
+      localStorage.setItem("user", JSON.stringify(data.user));
+
       alert("Login successful");
 
       if (data.user.role === "customer") {
@@ -399,7 +391,7 @@ export default function LoginPage() {
       <style>{styles}</style>
       <div className="login-root">
 
-        {/* ── LEFT PANEL ── */}
+        {/* LEFT PANEL */}
         <div className="left-panel">
 
           <button className="back-btn" onClick={() => navigate("/")}>
@@ -466,7 +458,7 @@ export default function LoginPage() {
 
         </div>
 
-        {/* ── RIGHT PANEL ── */}
+        {/* RIGHT PANEL */}
         <div className="right-panel">
           <div className="login-card">
 
@@ -491,7 +483,7 @@ export default function LoginPage() {
             </div>
 
             <form onSubmit={handleSubmit}>
-              {/* Email */}
+
               <label className="field-label">Email Address</label>
               <div className="input-wrap">
                 <span className="input-icon">✉️</span>
@@ -503,7 +495,6 @@ export default function LoginPage() {
                 />
               </div>
 
-              {/* Password */}
               <label className="field-label">Password</label>
               <div className="input-wrap">
                 <span className="input-icon">🔒</span>
@@ -522,7 +513,6 @@ export default function LoginPage() {
                 </button>
               </div>
 
-              {/* Remember / Forgot */}
               <div className="extras-row">
                 <label className="remember-label">
                   <input type="checkbox" /> Remember me
@@ -550,6 +540,7 @@ export default function LoginPage() {
 
           </div>
         </div>
+
       </div>
     </>
   );

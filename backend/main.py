@@ -11,6 +11,7 @@ app.add_middleware(
     CORSMiddleware,
     allow_origins=[
         "http://localhost:3000",
+        "http://localhost:3001",
         "http://localhost:5173",
     ],
     allow_credentials=True,
@@ -23,16 +24,54 @@ app.add_middleware(
 def root():
     return {"message": "Backend connected 🚀"}
 
+
 # ---------------- SIGNUP ----------------
 @app.post("/add-user")
 def add_user(user: dict):
+
     if db.user.find_one({"email": user["email"]}):
         raise HTTPException(status_code=400, detail="User already exists")
 
     user["createdAt"] = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+
+    # insert into user collection
     db.user.insert_one(user)
 
+    # create provider profile if role is provider
+    if user.get("role") == "provider":
+
+        provider_profile = {
+            "id": str(uuid.uuid4()),
+            "email": user["email"],
+
+            # 🔥 FIXED HERE
+            "fullName": user.get("fullName") or user.get("name"),
+
+            "phone": user.get("phone"),
+            "serviceArea": user.get("city") or user.get("location"),
+
+            "serviceType": "",
+            "experience": 0,
+            "skills": [],
+            "address": "",
+
+            "rating": 0,
+            "jobsCompleted": 0,
+            "totalEarned": 0,
+            "successRate": 0,
+            "reviews": [],
+
+            "isVerified": False,
+            "isAvailable": True,
+
+            "memberSince": datetime.now().strftime("%B %Y"),
+            "createdAt": datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        }
+
+        db.provider.insert_one(provider_profile)
+
     return {"status": "success"}
+
 
 # ---------------- LOGIN ----------------
 @app.post("/login")
@@ -53,6 +92,7 @@ def login(user: dict):
         "status": "success",
         "user": db_user
     }
+
 
 # ---------------- CREATE REQUEST ----------------
 @app.post("/requests")
@@ -76,6 +116,7 @@ def create_request(request: dict):
 
     return {"status": "success", "id": new_request["id"]}
 
+
 # ---------------- GET REQUESTS ----------------
 @app.get("/requests/{email}")
 def get_requests(email: str):
@@ -86,6 +127,7 @@ def get_requests(email: str):
     ))
 
     return requests
+
 
 # ---------------- RATE REQUEST ----------------
 @app.put("/requests/rate/{request_id}")
@@ -106,3 +148,15 @@ def rate_request(request_id: str, data: dict):
         raise HTTPException(status_code=404, detail="Request not found")
 
     return {"status": "success"}
+
+
+# ---------------- GET PROVIDER PROFILE ----------------
+@app.get("/provider/profile/{email}")
+def get_provider_profile(email: str):
+
+    profile = db.provider.find_one({"email": email}, {"_id": 0})
+
+    if not profile:
+        raise HTTPException(status_code=404, detail="Profile not found")
+
+    return profile

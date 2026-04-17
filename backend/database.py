@@ -28,3 +28,6 @@ try:
 except Exception as e:
     print("❌ MongoDB connection failed:", e)
     raise
+
+
+#uvicorn main:app --reload
