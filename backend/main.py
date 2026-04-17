@@ -190,7 +190,7 @@ def get_provider_profile(email: str):
     return profile
 
 
-# ---------------- GET CUSTOMER PROFILE (FIXED) ----------------
+# ---------------- GET CUSTOMER PROFILE ----------------
 @app.get("/customer-profile/{email}")
 def get_customer_profile(email: str):
 
