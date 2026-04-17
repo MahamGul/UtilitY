@@ -276,30 +276,41 @@ export default function SignupPage() {
   const navigate = useNavigate();
 
   const handleSignup = async (e) => {
-    e.preventDefault();
+  e.preventDefault();
 
-    if (!email || !password) {
-      alert("Please fill all fields");
-      return;
-    }
+  if (!email || !password || !fullName || !phone || !location) {
+    alert("Please fill all fields");
+    return;
+  }
 
-    try {
-      const res = await fetch("http://127.0.0.1:8000/add-user", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email, password, role }),
-      });
+  if (password !== confirmPassword) {
+    alert("Passwords do not match");
+    return;
+  }
 
-      const data = await res.json();
+  try {
+    const res = await fetch("http://127.0.0.1:8000/add-user", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        email,
+        password,
+        role,
+        fullName,
+        phone,
+        location,
+      }),
+    });
 
-      if (!res.ok) throw new Error("Signup failed");
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.detail || "Signup failed");
 
-      alert("Account created successfully!");
-      navigate("/login");
-    } catch (err) {
-      alert(err.message);
-    }
-  };
+    alert("Account created successfully!");
+    navigate("/login");
+  } catch (err) {
+    alert(err.message);
+  }
+};
 
   return (
     <>

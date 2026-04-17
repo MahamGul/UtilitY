@@ -26,10 +26,10 @@ def root():
 # ---------------- SIGNUP ----------------
 @app.post("/add-user")
 def add_user(user: dict):
-
     if db.user.find_one({"email": user["email"]}):
         raise HTTPException(status_code=400, detail="User already exists")
 
+    user["createdAt"] = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     db.user.insert_one(user)
 
     return {"status": "success"}
