@@ -12,6 +12,7 @@ app.add_middleware(
     CORSMiddleware,
     allow_origins=[
         "http://localhost:3000",
+        "http://localhost:3001",
         "http://localhost:5173",
     ],
     allow_credentials=True,
@@ -33,18 +34,18 @@ def add_user(user: dict):
         raise HTTPException(status_code=400, detail="User already exists")
 
     user["createdAt"] = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-    db.user.insert_one(user)
 
-    # create provider profile if role is provider
+    result = db.user.insert_one(user)
+    user_id = str(result.inserted_id)
+
+    # ---------------- PROVIDER PROFILE ----------------
     if user.get("role") == "provider":
 
         provider_profile = {
             "id": str(uuid.uuid4()),
+            "userId": user_id,
             "email": user["email"],
-
-            # 🔥 FIXED HERE
             "fullName": user.get("fullName") or user.get("name"),
-
             "phone": user.get("phone"),
             "serviceArea": user.get("city") or user.get("location"),
 
@@ -67,6 +68,35 @@ def add_user(user: dict):
         }
 
         db.provider.insert_one(provider_profile)
+
+    # ---------------- CUSTOMER PROFILE ----------------
+    if user.get("role") == "customer":
+
+        customer_profile = {
+            "id": str(uuid.uuid4()),
+            "userId": user_id,
+            "email": user["email"],
+
+            "accountStatus": "Active",
+            "memberSince": datetime.now().strftime("%Y-%m"),
+
+            "activitySummary": {
+                "totalRequests": 0,
+                "completed": 0,
+                "cancelled": 0,
+                "totalSpent": 0,
+                "avgRatingGiven": 0
+            },
+
+            "preferences": {
+                "preferredServices": [],
+                "notificationsEnabled": True
+            },
+
+            "lastActive": datetime.now().isoformat()
+        }
+
+        db.customer_profile.insert_one(customer_profile)
 
     return {"status": "success"}
 
@@ -146,3 +176,74 @@ def rate_request(request_id: str, data: dict):
         raise HTTPException(status_code=404, detail="Request not found")
 
     return {"status": "success"}
+
+
+# ---------------- GET PROVIDER PROFILE ----------------
+@app.get("/provider/profile/{email}")
+def get_provider_profile(email: str):
+
+    profile = db.provider.find_one({"email": email}, {"_id": 0})
+
+    if not profile:
+        raise HTTPException(status_code=404, detail="Profile not found")
+
+    return profile
+
+
+# ---------------- GET CUSTOMER PROFILE (FIXED) ----------------
+@app.get("/customer-profile/{email}")
+def get_customer_profile(email: str):
+
+    # 1. Get user
+    user = db.user.find_one({"email": email})
+
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+
+    user_id = str(user["_id"])
+
+    # 2. Get profile using userId (correct relation)
+    profile = db.customer_profile.find_one(
+        {"userId": user_id},
+        {"_id": 0}
+    )
+
+    # 3. Auto-create profile if missing (prevents frontend crash)
+    if not profile:
+
+        profile = {
+            "id": str(uuid.uuid4()),
+            "userId": user_id,
+            "email": email,
+
+            "accountStatus": "Active",
+            "memberSince": datetime.now().strftime("%Y-%m"),
+
+            "activitySummary": {
+                "totalRequests": 0,
+                "completed": 0,
+                "cancelled": 0,
+                "totalSpent": 0,
+                "avgRatingGiven": 0
+            },
+
+            "preferences": {
+                "preferredServices": [],
+                "notificationsEnabled": True
+            },
+
+            "lastActive": datetime.now().isoformat()
+        }
+
+        db.customer_profile.insert_one(profile)
+
+    return {
+        "user": {
+            "fullName": user.get("fullName"),
+            "email": user.get("email"),
+            "phone": user.get("phone"),
+            "location": user.get("location"),
+            "role": user.get("role")
+        },
+        "profile": profile
+    }
