@@ -14,3 +14,5 @@ client = MongoClient(MONGO_URI)
 db = client["utility_db"]
 
 print("MongoDB connected ✅")
+
+#uvicorn main:app --reload
