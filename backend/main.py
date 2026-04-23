@@ -3,6 +3,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from database import db
 import uuid
 from datetime import datetime
+from bson import ObjectId
 
 app = FastAPI()
 
@@ -61,6 +62,13 @@ def add_user(user: dict):
 
             "isVerified": False,
             "isAvailable": True,
+            "isActive": True,
+
+            "settings": {
+                "emailNotifications": True,
+                "smsNotifications": True,
+                "showProfile": True
+            },
 
             "memberSince": datetime.now().strftime("%B %Y"),
             "createdAt": datetime.now().strftime("%Y-%m-%d %H:%M:%S")
@@ -104,10 +112,13 @@ def add_user(user: dict):
 @app.post("/login")
 def login(user: dict):
 
-    db_user = db.user.find_one({
-        "email": user["email"],
-        "password": user["password"]
-    }, {"_id": 0})
+    db_user = db.user.find_one(
+        {
+            "email": user["email"],
+            "password": user["password"]
+        },
+        {"_id": 0}
+    )
 
     if not db_user:
         raise HTTPException(status_code=401, detail="Invalid credentials")
@@ -207,18 +218,19 @@ def create_request(request: dict):
 
     db.requests.insert_one(new_request)
 
-    return {
-        "status": "success",
-        "id": new_request["id"]
-    }
+    return {"status": "success", "id": new_request["id"]}
+
+
 # ---------------- GET REQUESTS ----------------
 @app.get("/requests/{email}")
 def get_requests(email: str):
 
-    requests = list(db.requests.find(
-        {"user_email": email},
-        {"_id": 0}
-    ))
+    requests = list(
+        db.requests.find(
+            {"user_email": email},
+            {"_id": 0}
+        )
+    )
 
     return requests
 
@@ -248,12 +260,139 @@ def rate_request(request_id: str, data: dict):
 @app.get("/provider/profile/{email}")
 def get_provider_profile(email: str):
 
-    profile = db.provider.find_one({"email": email}, {"_id": 0})
+    profile = db.provider.find_one(
+        {"email": email},
+        {"_id": 0}
+    )
 
     if not profile:
         raise HTTPException(status_code=404, detail="Profile not found")
 
     return profile
+
+
+# ---------------- UPDATE PROVIDER PROFILE ----------------
+@app.put("/provider/profile/update/{email}")
+def update_provider_profile(email: str, data: dict):
+
+    result = db.provider.update_one(
+        {"email": email},
+        {
+            "$set": {
+                "fullName": data.get("fullName"),
+                "phone": data.get("phone"),
+                "serviceArea": data.get("serviceArea"),
+                "serviceType": data.get("serviceType"),
+                "experience": data.get("experience"),
+                "skills": data.get("skills", []),
+                "address": data.get("address")
+            }
+        }
+    )
+
+    db.user.update_one(
+        {"email": email},
+        {
+            "$set": {
+                "fullName": data.get("fullName"),
+                "phone": data.get("phone"),
+                "location": data.get("serviceArea")
+            }
+        }
+    )
+
+    if result.matched_count == 0:
+        raise HTTPException(status_code=404, detail="Provider not found")
+
+    return {
+        "status": "success",
+        "message": "Profile updated"
+    }
+
+
+# ---------------- CHANGE PASSWORD ----------------
+@app.put("/provider/change-password/{email}")
+def change_password(email: str, data: dict):
+
+    old_password = data.get("oldPassword")
+    new_password = data.get("newPassword")
+
+    user = db.user.find_one({"email": email})
+
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+
+    if user["password"] != old_password:
+        raise HTTPException(status_code=400, detail="Old password incorrect")
+
+    db.user.update_one(
+        {"email": email},
+        {
+            "$set": {
+                "password": new_password
+            }
+        }
+    )
+
+    return {
+        "status": "success",
+        "message": "Password updated"
+    }
+
+
+# ---------------- UPDATE SETTINGS ----------------
+@app.put("/provider/settings/{email}")
+def update_provider_settings(email: str, data: dict):
+
+    result = db.provider.update_one(
+        {"email": email},
+        {
+            "$set": {
+                "settings": data.get("settings")
+            }
+        }
+    )
+
+    if result.matched_count == 0:
+        raise HTTPException(status_code=404, detail="Provider not found")
+
+    return {"status": "success"}
+
+
+# ---------------- DEACTIVATE ACCOUNT ----------------
+@app.put("/provider/deactivate/{email}")
+def deactivate_account(email: str):
+
+    result = db.provider.update_one(
+        {"email": email},
+        {
+            "$set": {
+                "isAvailable": False,
+                "isActive": False
+            }
+        }
+    )
+
+    if result.matched_count == 0:
+        raise HTTPException(status_code=404, detail="Provider not found")
+
+    return {
+        "status": "success",
+        "message": "Account deactivated"
+    }
+
+
+# ---------------- DELETE ACCOUNT ----------------
+@app.delete("/provider/delete/{email}")
+def delete_provider_account(email: str):
+
+    db.provider.delete_one({"email": email})
+    db.user.delete_one({"email": email})
+
+    return {
+        "status": "success",
+        "message": "Account deleted permanently"
+    }
 
 
 # ---------------- GET CUSTOMER PROFILE ----------------
