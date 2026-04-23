@@ -3,7 +3,6 @@ from fastapi.middleware.cors import CORSMiddleware
 from database import db
 import uuid
 from datetime import datetime
-from bson import ObjectId
 
 app = FastAPI()
 
@@ -122,29 +121,96 @@ def login(user: dict):
     }
 
 
-# ---------------- CREATE REQUEST ----------------
+# ---------------- CREATE REQUEST (UPDATED CORE FEATURE) ----------------
 @app.post("/requests")
 def create_request(request: dict):
 
+    # ---------------- VALIDATION ----------------
+    if "user_email" not in request:
+        raise HTTPException(status_code=400, detail="user_email is required")
+
+    user = db.user.find_one({"email": request["user_email"]})
+
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+
+    if user.get("role") != "customer":
+        raise HTTPException(status_code=403, detail="Only customers can create requests")
+
+    profile = db.customer_profile.find_one({"email": user["email"]})
+
+    if not profile:
+        profile = {
+            "id": str(uuid.uuid4()),
+            "userId": str(user["_id"]),
+            "email": user["email"],
+            "accountStatus": "Active",
+            "memberSince": datetime.now().strftime("%Y-%m")
+        }
+        db.customer_profile.insert_one(profile)
+
+    required_fields = ["category", "description", "budget", "date", "time"]
+
+    for field in required_fields:
+        if field not in request or request[field] == "":
+            raise HTTPException(status_code=400, detail=f"{field} is required")
+
+    allowed_categories = ["plumber", "electrician", "mechanic", "carpenter", "general repair"]
+
+    if request["category"] not in allowed_categories:
+        raise HTTPException(status_code=400, detail="Invalid category")
+
+    if "latitude" not in request or "longitude" not in request:
+        raise HTTPException(status_code=400, detail="Location is required")
+
+    # ---------------- NEW: LOCATION NAME SUPPORT ----------------
+    location_name = request.get("location_name", "")
+
+    # ---------------- CREATE REQUEST ----------------
     new_request = {
         "id": str(uuid.uuid4()),
-        "user_email": request["user_email"],
-        "user_name": request.get("user_name"),
-        "serviceType": request["serviceType"],
+
+        "user_email": user["email"],
+        "user_name": user.get("fullName") or user.get("name"),
+        "customer_id": str(user["_id"]),
+
+        "category": request["category"],
         "description": request["description"],
-        "budget": request["budget"],
-        "status": "Pending",
-        "provider": request.get("provider"),
-        "rating": None,
-        "reviewText": None,
-        "datePosted": datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+
+        "image_url": request.get("image_url", ""),
+
+        "location": {
+            "type": "Point",
+            "coordinates": [
+                request["longitude"],
+                request["latitude"]
+            ]
+        },
+
+        # ✅ NEW FIELD STORED PROPERLY
+        "location_name": location_name,
+
+        "location_link": request.get(
+            "location_link",
+            f"https://www.google.com/maps?q={request['latitude']},{request['longitude']}"
+        ),
+
+        "budget": int(request["budget"]),
+        "date": request["date"],
+        "time": request["time"],
+        "note": request.get("note", ""),
+
+        "status": "open",
+
+        "created_at": datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     }
 
     db.requests.insert_one(new_request)
 
-    return {"status": "success", "id": new_request["id"]}
-
-
+    return {
+        "status": "success",
+        "id": new_request["id"]
+    }
 # ---------------- GET REQUESTS ----------------
 @app.get("/requests/{email}")
 def get_requests(email: str):
@@ -194,7 +260,6 @@ def get_provider_profile(email: str):
 @app.get("/customer-profile/{email}")
 def get_customer_profile(email: str):
 
-    # 1. Get user
     user = db.user.find_one({"email": email})
 
     if not user:
@@ -202,13 +267,11 @@ def get_customer_profile(email: str):
 
     user_id = str(user["_id"])
 
-    # 2. Get profile using userId (correct relation)
     profile = db.customer_profile.find_one(
         {"userId": user_id},
         {"_id": 0}
     )
 
-    # 3. Auto-create profile if missing (prevents frontend crash)
     if not profile:
 
         profile = {
