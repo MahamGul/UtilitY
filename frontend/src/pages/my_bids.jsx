@@ -65,9 +65,11 @@ function getProviderInfo() {
 
 export function MyBidsPage() {
   const [requests, setRequests]                 = useState([]);
-  const [loading, setLoading]                   = useState(true);
+  // null = still initializing (show spinner), true/false = actual loading state
+  const [skillLoading, setSkillLoading]         = useState(true);
+  const [loading, setLoading]                   = useState(false);
   const [error, setError]                       = useState(null);
-  const [providerSkill, setProviderSkill]       = useState("");
+  const [providerSkill, setProviderSkill]       = useState(null);
 
   // Modals
   const [showBidModal, setShowBidModal]         = useState(false);
@@ -92,44 +94,44 @@ export function MyBidsPage() {
 
   const getProviderEmail = () => getProviderInfo().email || "";
 
-  // ── Fetch provider profile to get their skill ─────────────
+  // ── Step 1: Fetch provider skill first, THEN trigger request fetch ──
   useEffect(() => {
     const fetchProviderSkill = async () => {
       const email = getProviderEmail();
-      if (!email) return;
+      if (!email) {
+        setSkillLoading(false);
+        return;
+      }
       try {
         const res = await fetch(`${API_BASE}/provider/profile/${email}`);
-        if (!res.ok) return;
+        if (!res.ok) throw new Error("Failed to load profile");
         const data = await res.json();
-        if (data.serviceType) {
-          setProviderSkill(data.serviceType.toLowerCase().trim());
-        }
-      } catch (_) {}
+        setProviderSkill(data.serviceType?.toLowerCase().trim() || "");
+      } catch (_) {
+        setProviderSkill("");
+      } finally {
+        setSkillLoading(false);
+      }
     };
     fetchProviderSkill();
   }, []);
 
-  // ── Fetch ALL requests then filter client-side by providerSkill ──
+  // ── Step 2: Only fetch requests once skill is known ──
   const fetchRequests = useCallback(async () => {
+    const email = getProviderEmail();
+    if (!email || providerSkill === null) return; // still initializing
+
     setLoading(true);
     setError(null);
     try {
-      const email = getProviderEmail();
-      if (!email) throw new Error("Not logged in");
+      const url = providerSkill
+        ? `${API_BASE}/available-requests/${email}?category=${encodeURIComponent(providerSkill)}`
+        : `${API_BASE}/available-requests/${email}`;
 
-      const res = await fetch(`${API_BASE}/available-requests/${email}`);
+      const res = await fetch(url);
       if (!res.ok) throw new Error("Failed to fetch requests");
       const data = await res.json();
-
-      // ✅ Client-side filter: only show jobs matching provider's skill
-      if (providerSkill) {
-        const filtered = data.filter(
-          (req) => req.category?.toLowerCase().trim() === providerSkill
-        );
-        setRequests(filtered);
-      } else {
-        setRequests([]);
-      }
+      setRequests(data);
     } catch (err) {
       setError(err.message);
     } finally {
@@ -137,9 +139,10 @@ export function MyBidsPage() {
     }
   }, [providerSkill]);
 
+  // Runs only after skillLoading is done (providerSkill is no longer null)
   useEffect(() => {
-    if (providerSkill !== undefined) fetchRequests();
-  }, [fetchRequests, providerSkill]);
+    if (!skillLoading) fetchRequests();
+  }, [skillLoading, fetchRequests]);
 
   // ── Open bid modal ────────────────────────────────────────
   const openBidModal = (req) => {
@@ -200,6 +203,7 @@ export function MyBidsPage() {
     setShowPrefsModal(false);
   };
 
+  const isPageLoading = skillLoading || loading;
   const matchingCount = requests.length;
 
   return (
@@ -237,15 +241,18 @@ export function MyBidsPage() {
           <h1 className="text-3xl font-bold">Available Job Requests</h1>
           <button
             onClick={fetchRequests}
-            className="flex items-center gap-2 text-sm text-gray-500 hover:text-sky-600 transition"
+            disabled={isPageLoading}
+            className="flex items-center gap-2 text-sm text-gray-500 hover:text-sky-600 transition disabled:opacity-40"
           >
-            <RefreshCw size={15} className={loading ? "animate-spin" : ""} />
+            <RefreshCw size={15} className={isPageLoading ? "animate-spin" : ""} />
             Refresh
           </button>
         </div>
 
         <p className="text-gray-500 mb-6">
-          {providerSkill ? (
+          {skillLoading ? (
+            <span className="text-gray-400 text-sm">Loading your profile...</span>
+          ) : providerSkill ? (
             <>
               Showing requests matching your skill:{" "}
               <span className={`inline-block text-xs px-3 py-1 rounded-full font-semibold ml-1 ${CATEGORY_COLORS[providerSkill] || "bg-gray-100 text-gray-600"}`}>
@@ -262,7 +269,7 @@ export function MyBidsPage() {
           <div>
             <h2 className="text-xl font-semibold">New Job Opportunities</h2>
             <p className="text-sm">
-              {loading ? "Loading..." : `${matchingCount} request${matchingCount !== 1 ? "s" : ""} available for you`}
+              {isPageLoading ? "Loading..." : `${matchingCount} request${matchingCount !== 1 ? "s" : ""} available for you`}
             </p>
           </div>
           <Button
@@ -284,14 +291,14 @@ export function MyBidsPage() {
         )}
 
         {/* States */}
-        {loading && (
+        {isPageLoading && (
           <div className="flex flex-col items-center justify-center py-24 text-gray-400">
             <Loader2 size={36} className="animate-spin mb-3" />
-            <p>Loading available requests...</p>
+            <p>{skillLoading ? "Loading your profile..." : "Loading available requests..."}</p>
           </div>
         )}
 
-        {!loading && error && (
+        {!isPageLoading && error && (
           <div className="flex flex-col items-center justify-center py-24 text-red-400">
             <AlertCircle size={36} className="mb-3" />
             <p>{error}</p>
@@ -299,7 +306,7 @@ export function MyBidsPage() {
           </div>
         )}
 
-        {!loading && !error && requests.length === 0 && (
+        {!isPageLoading && !error && requests.length === 0 && (
           <div className="flex flex-col items-center justify-center py-24 text-gray-400">
             <ClipboardList size={36} className="mb-3" />
             <p className="font-medium">No open requests right now</p>
@@ -312,7 +319,7 @@ export function MyBidsPage() {
         )}
 
         {/* Jobs Grid */}
-        {!loading && !error && requests.length > 0 && (
+        {!isPageLoading && !error && requests.length > 0 && (
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
             {requests.map((req) => (
               <RequestCard
@@ -431,7 +438,6 @@ export function MyBidsPage() {
               <DetailCard icon={<Clock size={14} />}        label="Posted"      value={timeAgo(selectedRequest.created_at)} />
             </div>
 
-            {/* ✅ Fixed: builds Maps URL from location_name so it shows the place name, not coordinates */}
             {(selectedRequest.location_link || selectedRequest.location_name) && (
               <a
                 href={
