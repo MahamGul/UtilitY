@@ -132,11 +132,10 @@ def login(user: dict):
     }
 
 
-# ---------------- CREATE REQUEST (UPDATED CORE FEATURE) ----------------
+# ---------------- CREATE REQUEST ----------------
 @app.post("/requests")
 def create_request(request: dict):
 
-    # ---------------- VALIDATION ----------------
     if "user_email" not in request:
         raise HTTPException(status_code=400, detail="user_email is required")
 
@@ -174,10 +173,8 @@ def create_request(request: dict):
     if "latitude" not in request or "longitude" not in request:
         raise HTTPException(status_code=400, detail="Location is required")
 
-    # ---------------- NEW: LOCATION NAME SUPPORT ----------------
     location_name = request.get("location_name", "")
 
-    # ---------------- CREATE REQUEST ----------------
     new_request = {
         "id": str(uuid.uuid4()),
 
@@ -198,7 +195,6 @@ def create_request(request: dict):
             ]
         },
 
-        # ✅ NEW FIELD STORED PROPERLY
         "location_name": location_name,
 
         "location_link": request.get(
@@ -221,7 +217,7 @@ def create_request(request: dict):
     return {"status": "success", "id": new_request["id"]}
 
 
-# ---------------- GET REQUESTS ----------------
+# ---------------- GET REQUESTS (by customer email) ----------------
 @app.get("/requests/{email}")
 def get_requests(email: str):
 
@@ -256,7 +252,204 @@ def rate_request(request_id: str, data: dict):
     return {"status": "success"}
 
 
-# ---------------- GET PROVIDER PROFILE ----------------
+# ================================================================
+# ----------------  AVAILABLE REQUESTS (for providers)  ----------
+# ================================================================
+
+@app.get("/available-requests/{provider_email}")
+def get_available_requests(provider_email: str, category: str = None):
+    """
+    Returns all open requests that the provider has NOT already bid on.
+    Optionally filter by category (e.g. ?category=plumber).
+    """
+
+    # Find request IDs this provider already bid on
+    already_bid = db.bids.distinct("request_id", {"provider_email": provider_email})
+
+    # Build query: open status + not already bid
+    query = {
+        "status": "open",
+        "id": {"$nin": already_bid}
+    }
+
+    if category:
+        query["category"] = category
+
+    raw = list(db.requests.find(query, {"_id": 0}))
+
+    # Enrich each request with bid count
+    result = []
+    for req in raw:
+        bid_count = db.bids.count_documents({"request_id": req["id"]})
+        req["totalBids"] = bid_count
+        result.append(req)
+
+    # Sort newest first
+    result.sort(key=lambda x: x.get("created_at", ""), reverse=True)
+
+    return result
+
+
+# ================================================================
+# ----------------  BIDS  ----------------------------------------
+# ================================================================
+
+@app.post("/bids")
+def submit_bid(data: dict):
+    """
+    Provider submits a bid on a request.
+    Required fields: request_id, provider_email, bid_amount, availability, completion_time
+    Optional: message
+    """
+
+    required = ["request_id", "provider_email", "bid_amount", "availability", "completion_time"]
+    for field in required:
+        if field not in data or data[field] == "":
+            raise HTTPException(status_code=400, detail=f"{field} is required")
+
+    # Check request exists and is still open
+    request = db.requests.find_one({"id": data["request_id"]})
+    if not request:
+        raise HTTPException(status_code=404, detail="Request not found")
+    if request.get("status") != "open":
+        raise HTTPException(status_code=400, detail="This request is no longer open for bids")
+
+    # Check provider exists
+    provider = db.provider.find_one({"email": data["provider_email"]})
+    if not provider:
+        raise HTTPException(status_code=404, detail="Provider not found")
+
+    # Prevent duplicate bids
+    existing = db.bids.find_one({
+        "request_id": data["request_id"],
+        "provider_email": data["provider_email"]
+    })
+    if existing:
+        raise HTTPException(status_code=400, detail="You have already submitted a bid for this request")
+
+    new_bid = {
+        "id": str(uuid.uuid4()),
+        "request_id": data["request_id"],
+
+        "provider_email": data["provider_email"],
+        "provider_name": provider.get("fullName", ""),
+        "provider_service_type": provider.get("serviceType", ""),
+        "provider_rating": provider.get("rating", 0),
+
+        "bid_amount": int(data["bid_amount"]),
+        "availability": data["availability"],
+        "completion_time": data["completion_time"],
+        "message": data.get("message", ""),
+
+        # Snapshot of request info for easy display in bids history
+        "request_snapshot": {
+            "title": request.get("description", ""),
+            "category": request.get("category", ""),
+            "customer_name": request.get("user_name", ""),
+            "customer_email": request.get("user_email", ""),
+            "budget": request.get("budget", 0),
+            "location_name": request.get("location_name", ""),
+            "date": request.get("date", ""),
+            "time": request.get("time", ""),
+        },
+
+        "status": "pending",  # pending | accepted | rejected | withdrawn
+        "created_at": datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    }
+
+    db.bids.insert_one(new_bid)
+
+    return {"status": "success", "bid_id": new_bid["id"]}
+
+
+@app.get("/bids/provider/{provider_email}")
+def get_provider_bids(provider_email: str):
+    """
+    Returns all bids submitted by a provider (for Bids History page).
+    """
+    bids = list(db.bids.find({"provider_email": provider_email}, {"_id": 0}))
+    bids.sort(key=lambda x: x.get("created_at", ""), reverse=True)
+    return bids
+
+
+@app.get("/bids/request/{request_id}")
+def get_request_bids(request_id: str):
+    """
+    Returns all bids on a specific request (for customers to review).
+    """
+    bids = list(db.bids.find({"request_id": request_id}, {"_id": 0}))
+    return bids
+
+
+@app.delete("/bids/{bid_id}")
+def withdraw_bid(bid_id: str, data: dict):
+    """
+    Provider withdraws their bid (only if still pending).
+    Requires: provider_email in body for ownership check.
+    """
+    bid = db.bids.find_one({"id": bid_id})
+    if not bid:
+        raise HTTPException(status_code=404, detail="Bid not found")
+
+    if bid["provider_email"] != data.get("provider_email"):
+        raise HTTPException(status_code=403, detail="Not authorized")
+
+    if bid["status"] != "pending":
+        raise HTTPException(status_code=400, detail="Can only withdraw pending bids")
+
+    db.bids.delete_one({"id": bid_id})
+    return {"status": "success", "message": "Bid withdrawn"}
+
+
+@app.put("/bids/{bid_id}/status")
+def update_bid_status(bid_id: str, data: dict):
+    """
+    Customer accepts or rejects a bid.
+    Requires: status ("accepted" | "rejected"), customer_email
+    When a bid is accepted, the request status is set to "in_progress"
+    and all other bids on that request are rejected.
+    """
+    new_status = data.get("status")
+    if new_status not in ["accepted", "rejected"]:
+        raise HTTPException(status_code=400, detail="Status must be 'accepted' or 'rejected'")
+
+    bid = db.bids.find_one({"id": bid_id})
+    if not bid:
+        raise HTTPException(status_code=404, detail="Bid not found")
+
+    # Verify the caller is the customer who posted the request
+    request = db.requests.find_one({"id": bid["request_id"]})
+    if not request:
+        raise HTTPException(status_code=404, detail="Associated request not found")
+
+    if request["user_email"] != data.get("customer_email"):
+        raise HTTPException(status_code=403, detail="Not authorized")
+
+    db.bids.update_one({"id": bid_id}, {"$set": {"status": new_status}})
+
+    if new_status == "accepted":
+        # Lock the request
+        db.requests.update_one(
+            {"id": bid["request_id"]},
+            {"$set": {
+                "status": "in_progress",
+                "provider": bid["provider_email"],
+                "accepted_bid_id": bid_id
+            }}
+        )
+        # Reject all other pending bids on this request
+        db.bids.update_many(
+            {"request_id": bid["request_id"], "id": {"$ne": bid_id}},
+            {"$set": {"status": "rejected"}}
+        )
+
+    return {"status": "success"}
+
+
+# ================================================================
+# ----------------  PROVIDER PROFILE  ----------------------------
+# ================================================================
+
 @app.get("/provider/profile/{email}")
 def get_provider_profile(email: str):
 
@@ -271,7 +464,6 @@ def get_provider_profile(email: str):
     return profile
 
 
-# ---------------- UPDATE PROVIDER PROFILE ----------------
 @app.put("/provider/profile/update/{email}")
 def update_provider_profile(email: str, data: dict):
 
@@ -304,13 +496,9 @@ def update_provider_profile(email: str, data: dict):
     if result.matched_count == 0:
         raise HTTPException(status_code=404, detail="Provider not found")
 
-    return {
-        "status": "success",
-        "message": "Profile updated"
-    }
+    return {"status": "success", "message": "Profile updated"}
 
 
-# ---------------- CHANGE PASSWORD ----------------
 @app.put("/provider/change-password/{email}")
 def change_password(email: str, data: dict):
 
@@ -327,30 +515,18 @@ def change_password(email: str, data: dict):
 
     db.user.update_one(
         {"email": email},
-        {
-            "$set": {
-                "password": new_password
-            }
-        }
+        {"$set": {"password": new_password}}
     )
 
-    return {
-        "status": "success",
-        "message": "Password updated"
-    }
+    return {"status": "success", "message": "Password updated"}
 
 
-# ---------------- UPDATE SETTINGS ----------------
 @app.put("/provider/settings/{email}")
 def update_provider_settings(email: str, data: dict):
 
     result = db.provider.update_one(
         {"email": email},
-        {
-            "$set": {
-                "settings": data.get("settings")
-            }
-        }
+        {"$set": {"settings": data.get("settings")}}
     )
 
     if result.matched_count == 0:
@@ -359,43 +535,33 @@ def update_provider_settings(email: str, data: dict):
     return {"status": "success"}
 
 
-# ---------------- DEACTIVATE ACCOUNT ----------------
 @app.put("/provider/deactivate/{email}")
 def deactivate_account(email: str):
 
     result = db.provider.update_one(
         {"email": email},
-        {
-            "$set": {
-                "isAvailable": False,
-                "isActive": False
-            }
-        }
+        {"$set": {"isAvailable": False, "isActive": False}}
     )
 
     if result.matched_count == 0:
         raise HTTPException(status_code=404, detail="Provider not found")
 
-    return {
-        "status": "success",
-        "message": "Account deactivated"
-    }
+    return {"status": "success", "message": "Account deactivated"}
 
 
-# ---------------- DELETE ACCOUNT ----------------
 @app.delete("/provider/delete/{email}")
 def delete_provider_account(email: str):
 
     db.provider.delete_one({"email": email})
     db.user.delete_one({"email": email})
 
-    return {
-        "status": "success",
-        "message": "Account deleted permanently"
-    }
+    return {"status": "success", "message": "Account deleted permanently"}
 
 
-# ---------------- GET CUSTOMER PROFILE ----------------
+# ================================================================
+# ----------------  CUSTOMER PROFILE  ----------------------------
+# ================================================================
+
 @app.get("/customer-profile/{email}")
 def get_customer_profile(email: str):
 
@@ -412,15 +578,12 @@ def get_customer_profile(email: str):
     )
 
     if not profile:
-
         profile = {
             "id": str(uuid.uuid4()),
             "userId": user_id,
             "email": email,
-
             "accountStatus": "Active",
             "memberSince": datetime.now().strftime("%Y-%m"),
-
             "activitySummary": {
                 "totalRequests": 0,
                 "completed": 0,
@@ -428,15 +591,12 @@ def get_customer_profile(email: str):
                 "totalSpent": 0,
                 "avgRatingGiven": 0
             },
-
             "preferences": {
                 "preferredServices": [],
                 "notificationsEnabled": True
             },
-
             "lastActive": datetime.now().isoformat()
         }
-
         db.customer_profile.insert_one(profile)
 
     return {
