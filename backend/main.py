@@ -131,8 +131,9 @@ def login(user: dict):
         "user": db_user
     }
 
-
-# ---------------- CREATE REQUEST ----------------
+# ================================================================
+# ---------------- CREATE REQUEST (FIXED STATUS HERE) ----------------
+# ================================================================
 @app.post("/requests")
 def create_request(request: dict):
 
@@ -146,18 +147,6 @@ def create_request(request: dict):
 
     if user.get("role") != "customer":
         raise HTTPException(status_code=403, detail="Only customers can create requests")
-
-    profile = db.customer_profile.find_one({"email": user["email"]})
-
-    if not profile:
-        profile = {
-            "id": str(uuid.uuid4()),
-            "userId": str(user["_id"]),
-            "email": user["email"],
-            "accountStatus": "Active",
-            "memberSince": datetime.now().strftime("%Y-%m")
-        }
-        db.customer_profile.insert_one(profile)
 
     required_fields = ["category", "description", "budget", "date", "time"]
 
@@ -173,8 +162,6 @@ def create_request(request: dict):
     if "latitude" not in request or "longitude" not in request:
         raise HTTPException(status_code=400, detail="Location is required")
 
-    location_name = request.get("location_name", "")
-
     new_request = {
         "id": str(uuid.uuid4()),
 
@@ -184,7 +171,6 @@ def create_request(request: dict):
 
         "category": request["category"],
         "description": request["description"],
-
         "image_url": request.get("image_url", ""),
 
         "location": {
@@ -195,7 +181,7 @@ def create_request(request: dict):
             ]
         },
 
-        "location_name": location_name,
+        "location_name": request.get("location_name", ""),
 
         "location_link": request.get(
             "location_link",
@@ -207,7 +193,8 @@ def create_request(request: dict):
         "time": request["time"],
         "note": request.get("note", ""),
 
-        "status": "open",
+        # 🔥 FIXED HERE
+        "status": "pending",
 
         "created_at": datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     }
@@ -217,7 +204,9 @@ def create_request(request: dict):
     return {"status": "success", "id": new_request["id"]}
 
 
-# ---------------- GET REQUESTS (by customer email) ----------------
+# ================================================================
+# ---------------- GET REQUESTS ----------------
+# ================================================================
 @app.get("/requests/{email}")
 def get_requests(email: str):
 
@@ -231,44 +220,17 @@ def get_requests(email: str):
     return requests
 
 
-# ---------------- RATE REQUEST ----------------
-@app.put("/requests/rate/{request_id}")
-def rate_request(request_id: str, data: dict):
-
-    result = db.requests.update_one(
-        {"id": request_id},
-        {
-            "$set": {
-                "rating": data["rating"],
-                "reviewText": data["reviewText"],
-                "ratedAt": datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-            }
-        }
-    )
-
-    if result.matched_count == 0:
-        raise HTTPException(status_code=404, detail="Request not found")
-
-    return {"status": "success"}
-
-
 # ================================================================
-# ----------------  AVAILABLE REQUESTS (for providers)  ----------
+# ---------------- AVAILABLE REQUESTS (FIXED STATUS SUPPORT) -----
 # ================================================================
-
 @app.get("/available-requests/{provider_email}")
 def get_available_requests(provider_email: str, category: str = None):
-    """
-    Returns all open requests that the provider has NOT already bid on.
-    Optionally filter by category (e.g. ?category=plumber).
-    """
 
-    # Find request IDs this provider already bid on
     already_bid = db.bids.distinct("request_id", {"provider_email": provider_email})
 
-    # Build query: open status + not already bid
+    # 🔥 FIX: support both old + new systems
     query = {
-        "status": "open",
+        "status": {"$in": ["pending", "open"]},
         "id": {"$nin": already_bid}
     }
 
@@ -277,14 +239,11 @@ def get_available_requests(provider_email: str, category: str = None):
 
     raw = list(db.requests.find(query, {"_id": 0}))
 
-    # Enrich each request with bid count
     result = []
     for req in raw:
-        bid_count = db.bids.count_documents({"request_id": req["id"]})
-        req["totalBids"] = bid_count
+        req["totalBids"] = db.bids.count_documents({"request_id": req["id"]})
         result.append(req)
 
-    # Sort newest first
     result.sort(key=lambda x: x.get("created_at", ""), reverse=True)
 
     return result
@@ -311,7 +270,7 @@ def submit_bid(data: dict):
     request = db.requests.find_one({"id": data["request_id"]})
     if not request:
         raise HTTPException(status_code=404, detail="Request not found")
-    if request.get("status") != "open":
+    if request.get("status") not in ["pending", "open"]:
         raise HTTPException(status_code=400, detail="This request is no longer open for bids")
 
     # Check provider exists
