@@ -31,24 +31,21 @@ import { Button } from "../ui/button";
 const API_BASE = "http://localhost:8000";
 
 const CATEGORIES = [
-  { value: "", label: "All Categories" },
-  { value: "plumber", label: "Plumber" },
-  { value: "electrician", label: "Electrician" },
-  { value: "mechanic", label: "Mechanic" },
-  { value: "carpenter", label: "Carpenter" },
-  { value: "general repair", label: "General Repair" },
+  { value: "plumber",         label: "Plumber" },
+  { value: "electrician",     label: "Electrician" },
+  { value: "mechanic",        label: "Mechanic" },
+  { value: "carpenter",       label: "Carpenter" },
+  { value: "general repair",  label: "General Repair" },
 ];
 
-// Maps category → colour classes
 const CATEGORY_COLORS = {
-  plumber:        "bg-blue-100 text-blue-700",
-  electrician:    "bg-yellow-100 text-yellow-700",
-  mechanic:       "bg-gray-100 text-gray-700",
-  carpenter:      "bg-orange-100 text-orange-700",
+  plumber:          "bg-blue-100 text-blue-700",
+  electrician:      "bg-yellow-100 text-yellow-700",
+  mechanic:         "bg-gray-100 text-gray-700",
+  carpenter:        "bg-orange-100 text-orange-700",
   "general repair": "bg-purple-100 text-purple-700",
 };
 
-// How long ago helper
 function timeAgo(dateStr) {
   if (!dateStr) return "Unknown";
   const diff = Math.floor((Date.now() - new Date(dateStr).getTime()) / 1000);
@@ -58,11 +55,19 @@ function timeAgo(dateStr) {
   return `${Math.floor(diff / 86400)}d ago`;
 }
 
+function getProviderInfo() {
+  try {
+    return JSON.parse(localStorage.getItem("user") || "{}");
+  } catch {
+    return {};
+  }
+}
+
 export function MyBidsPage() {
-  const [requests, setRequests]           = useState([]);
-  const [loading, setLoading]             = useState(true);
-  const [error, setError]                 = useState(null);
-  const [selectedCategory, setSelectedCategory] = useState("");
+  const [requests, setRequests]                 = useState([]);
+  const [loading, setLoading]                   = useState(true);
+  const [error, setError]                       = useState(null);
+  const [providerSkill, setProviderSkill]       = useState("");
 
   // Modals
   const [showBidModal, setShowBidModal]         = useState(false);
@@ -71,26 +76,40 @@ export function MyBidsPage() {
   const [selectedRequest, setSelectedRequest]   = useState(null);
 
   // Bid form
-  const [bidAmount, setBidAmount]         = useState("");
-  const [availability, setAvailability]   = useState("");
-  const [completionTime, setCompletionTime] = useState("");
-  const [bidMessage, setBidMessage]       = useState("");
-  const [submitting, setSubmitting]       = useState(false);
-  const [submitSuccess, setSubmitSuccess] = useState(false);
-  const [submitError, setSubmitError]     = useState(null);
+  const [bidAmount, setBidAmount]               = useState("");
+  const [availability, setAvailability]         = useState("");
+  const [completionTime, setCompletionTime]     = useState("");
+  const [bidMessage, setBidMessage]             = useState("");
+  const [submitting, setSubmitting]             = useState(false);
+  const [submitSuccess, setSubmitSuccess]       = useState(false);
+  const [submitError, setSubmitError]           = useState(null);
 
-  // Preferences (stored locally; used as default category filter)
+  // Preferences
   const [prefCategories, setPrefCategories] = useState(() => {
     try { return JSON.parse(localStorage.getItem("providerPrefCategories") || "[]"); }
     catch { return []; }
   });
 
-  const getProviderEmail = () => {
-    try { return JSON.parse(localStorage.getItem("user") || "{}").email || ""; }
-    catch { return ""; }
-  };
+  const getProviderEmail = () => getProviderInfo().email || "";
 
-  // ── Fetch available requests ──────────────────────────────────
+  // ── Fetch provider profile to get their skill ─────────────
+  useEffect(() => {
+    const fetchProviderSkill = async () => {
+      const email = getProviderEmail();
+      if (!email) return;
+      try {
+        const res = await fetch(`${API_BASE}/provider/profile/${email}`);
+        if (!res.ok) return;
+        const data = await res.json();
+        if (data.serviceType) {
+          setProviderSkill(data.serviceType.toLowerCase().trim());
+        }
+      } catch (_) {}
+    };
+    fetchProviderSkill();
+  }, []);
+
+  // ── Fetch ALL requests then filter client-side by providerSkill ──
   const fetchRequests = useCallback(async () => {
     setLoading(true);
     setError(null);
@@ -98,21 +117,31 @@ export function MyBidsPage() {
       const email = getProviderEmail();
       if (!email) throw new Error("Not logged in");
 
-      const params = selectedCategory ? `?category=${encodeURIComponent(selectedCategory)}` : "";
-      const res = await fetch(`${API_BASE}/available-requests/${email}${params}`);
+      const res = await fetch(`${API_BASE}/available-requests/${email}`);
       if (!res.ok) throw new Error("Failed to fetch requests");
       const data = await res.json();
-      setRequests(data);
+
+      // ✅ Client-side filter: only show jobs matching provider's skill
+      if (providerSkill) {
+        const filtered = data.filter(
+          (req) => req.category?.toLowerCase().trim() === providerSkill
+        );
+        setRequests(filtered);
+      } else {
+        setRequests([]);
+      }
     } catch (err) {
       setError(err.message);
     } finally {
       setLoading(false);
     }
-  }, [selectedCategory]);
+  }, [providerSkill]);
 
-  useEffect(() => { fetchRequests(); }, [fetchRequests]);
+  useEffect(() => {
+    if (providerSkill !== undefined) fetchRequests();
+  }, [fetchRequests, providerSkill]);
 
-  // ── Open bid modal ────────────────────────────────────────────
+  // ── Open bid modal ────────────────────────────────────────
   const openBidModal = (req) => {
     setSelectedRequest(req);
     setBidAmount("");
@@ -124,22 +153,19 @@ export function MyBidsPage() {
     setShowBidModal(true);
   };
 
-  // ── Submit bid ────────────────────────────────────────────────
+  // ── Submit bid ────────────────────────────────────────────
   const submitBid = async () => {
     if (!bidAmount || !availability || !completionTime) {
       setSubmitError("Please fill in all required fields.");
       return;
     }
-
     const amountNum = parseInt(bidAmount.replace(/[^0-9]/g, ""), 10);
     if (isNaN(amountNum) || amountNum <= 0) {
       setSubmitError("Please enter a valid bid amount.");
       return;
     }
-
     setSubmitting(true);
     setSubmitError(null);
-
     try {
       const res = await fetch(`${API_BASE}/bids`, {
         method: "POST",
@@ -153,12 +179,9 @@ export function MyBidsPage() {
           message:         bidMessage,
         }),
       });
-
       const data = await res.json();
       if (!res.ok) throw new Error(data.detail || "Failed to submit bid");
-
       setSubmitSuccess(true);
-      // Remove the request from the list (provider already bid on it)
       setTimeout(() => {
         setShowBidModal(false);
         setRequests((prev) => prev.filter((r) => r.id !== selectedRequest.id));
@@ -170,14 +193,13 @@ export function MyBidsPage() {
     }
   };
 
-  // ── Save preferences ──────────────────────────────────────────
+  // ── Save preferences ──────────────────────────────────────
   const savePreferences = (cats) => {
     setPrefCategories(cats);
     localStorage.setItem("providerPrefCategories", JSON.stringify(cats));
     setShowPrefsModal(false);
   };
 
-  // ── Counts ────────────────────────────────────────────────────
   const matchingCount = requests.length;
 
   return (
@@ -193,7 +215,6 @@ export function MyBidsPage() {
             <span className="font-bold text-xl">UtilitY</span>
           </Link>
         </div>
-
         <nav className="flex-1 p-4 space-y-2">
           <NavItem to="/provider-dashboard" icon={<LayoutDashboard size={18} />} label="Home" />
           <NavItem to="/provider-messages"  icon={<MessageSquare size={18} />}   label="Messages" badge="5" />
@@ -201,7 +222,6 @@ export function MyBidsPage() {
           <NavItem to="/my-bids"            icon={<ClipboardList size={18} />}   label="Available Bids" active />
           <NavItem to="/provider-profile"   icon={<User size={18} />}             label="Profile" />
         </nav>
-
         <div className="p-4 border-t">
           <Link to="/login" className="flex items-center gap-3 text-red-600 hover:bg-red-50 px-3 py-2 rounded-lg">
             <LogOut size={18} /> Logout
@@ -223,7 +243,19 @@ export function MyBidsPage() {
             Refresh
           </button>
         </div>
-        <p className="text-gray-500 mb-6">Browse and bid on jobs posted by customers in your area</p>
+
+        <p className="text-gray-500 mb-6">
+          {providerSkill ? (
+            <>
+              Showing requests matching your skill:{" "}
+              <span className={`inline-block text-xs px-3 py-1 rounded-full font-semibold ml-1 ${CATEGORY_COLORS[providerSkill] || "bg-gray-100 text-gray-600"}`}>
+                {providerSkill.charAt(0).toUpperCase() + providerSkill.slice(1)}
+              </span>
+            </>
+          ) : (
+            "Set your skill in your profile to see matching job requests."
+          )}
+        </p>
 
         {/* Banner */}
         <div className="bg-gradient-to-r from-blue-400 to-teal-300 text-white p-6 rounded-xl flex justify-between items-center mb-6">
@@ -242,22 +274,14 @@ export function MyBidsPage() {
           </Button>
         </div>
 
-        {/* Category filter pills */}
-        <div className="flex gap-2 flex-wrap mb-6">
-          {CATEGORIES.map((cat) => (
-            <button
-              key={cat.value}
-              onClick={() => setSelectedCategory(cat.value)}
-              className={`px-4 py-1.5 rounded-full text-sm font-medium border transition ${
-                selectedCategory === cat.value
-                  ? "bg-sky-500 text-white border-sky-500"
-                  : "bg-white text-gray-600 border-gray-200 hover:border-sky-400"
-              }`}
-            >
-              {cat.label}
-            </button>
-          ))}
-        </div>
+        {/* Skill badge — display only */}
+        {providerSkill && (
+          <div className="flex gap-2 flex-wrap mb-6">
+            <span className={`px-4 py-1.5 rounded-full text-sm font-semibold border border-transparent ${CATEGORY_COLORS[providerSkill] || "bg-gray-100 text-gray-600"}`}>
+              {providerSkill.charAt(0).toUpperCase() + providerSkill.slice(1)}
+            </span>
+          </div>
+        )}
 
         {/* States */}
         {loading && (
@@ -279,7 +303,11 @@ export function MyBidsPage() {
           <div className="flex flex-col items-center justify-center py-24 text-gray-400">
             <ClipboardList size={36} className="mb-3" />
             <p className="font-medium">No open requests right now</p>
-            <p className="text-sm mt-1">Check back later or change your category filter</p>
+            <p className="text-sm mt-1">
+              {providerSkill
+                ? `No ${providerSkill} requests available at the moment. Check back later.`
+                : "Set your skill in your profile to see matching job requests."}
+            </p>
           </div>
         )}
 
@@ -302,8 +330,6 @@ export function MyBidsPage() {
       {/* ── Bid Modal ───────────────────────────────────────── */}
       {showBidModal && selectedRequest && (
         <Modal title="Submit Your Bid" onClose={() => setShowBidModal(false)}>
-
-          {/* Request snapshot */}
           <div className="bg-blue-50 p-5 rounded-xl mb-5 border border-blue-100">
             <p className="text-xs text-gray-500 mb-1 uppercase tracking-wide">Service Request</p>
             <h3 className="font-semibold text-lg mb-3">{selectedRequest.description}</h3>
@@ -345,7 +371,6 @@ export function MyBidsPage() {
                 value={completionTime}
                 onChange={(e) => setCompletionTime(e.target.value)}
               />
-
               <div className="mb-4">
                 <label className="block text-sm font-medium mb-1">Message to Client (Optional)</label>
                 <textarea
@@ -355,13 +380,11 @@ export function MyBidsPage() {
                   className="w-full border rounded-xl p-3 h-24 outline-none focus:ring-2 focus:ring-sky-400 resize-none text-sm"
                 />
               </div>
-
               {submitError && (
                 <p className="text-red-500 text-sm mb-3 flex items-center gap-2">
                   <AlertCircle size={14} /> {submitError}
                 </p>
               )}
-
               <div className="flex gap-3">
                 <Button
                   onClick={submitBid}
@@ -386,41 +409,44 @@ export function MyBidsPage() {
       {showDetailsModal && selectedRequest && (
         <Modal title="Request Details" onClose={() => setShowDetailsModal(false)}>
           <div className="space-y-4">
-
-            {/* Category badge */}
             <span className={`inline-block text-xs px-3 py-1 rounded-full font-medium ${CATEGORY_COLORS[selectedRequest.category] || "bg-gray-100 text-gray-600"}`}>
               {selectedRequest.category}
             </span>
-
             <div>
               <p className="text-xs text-gray-400 uppercase tracking-wide mb-1">Description</p>
               <p className="text-gray-800">{selectedRequest.description}</p>
             </div>
-
             {selectedRequest.note && (
               <div>
                 <p className="text-xs text-gray-400 uppercase tracking-wide mb-1">Additional Note</p>
                 <p className="text-gray-600 text-sm">{selectedRequest.note}</p>
               </div>
             )}
-
             <div className="grid grid-cols-2 gap-3 text-sm">
-              <DetailCard icon={<User size={14} />}         label="Client"   value={selectedRequest.user_name || "—"} />
-              <DetailCard icon={<DollarSign size={14} />}   label="Budget"   value={`Rs. ${selectedRequest.budget?.toLocaleString()}`} />
-              <DetailCard icon={<MapPin size={14} />}       label="Location" value={selectedRequest.location_name || "—"} />
-              <DetailCard icon={<CalendarDays size={14} />} label="Date"     value={`${selectedRequest.date} at ${selectedRequest.time}`} />
+              <DetailCard icon={<User size={14} />}         label="Client"      value={selectedRequest.user_name || "—"} />
+              <DetailCard icon={<DollarSign size={14} />}   label="Budget"      value={`Rs. ${selectedRequest.budget?.toLocaleString()}`} />
+              <DetailCard icon={<MapPin size={14} />}       label="Location"    value={selectedRequest.location_name || "—"} />
+              <DetailCard icon={<CalendarDays size={14} />} label="Date"        value={`${selectedRequest.date} at ${selectedRequest.time}`} />
               <DetailCard icon={<FileText size={14} />}     label="Bids so far" value={selectedRequest.totalBids ?? 0} />
-              <DetailCard icon={<Clock size={14} />}        label="Posted"   value={timeAgo(selectedRequest.created_at)} />
+              <DetailCard icon={<Clock size={14} />}        label="Posted"      value={timeAgo(selectedRequest.created_at)} />
             </div>
 
-            {selectedRequest.location_link && (
+            {/* ✅ Fixed: builds Maps URL from location_name so it shows the place name, not coordinates */}
+            {(selectedRequest.location_link || selectedRequest.location_name) && (
               <a
-                href={selectedRequest.location_link}
+                href={
+                  selectedRequest.location_name
+                    ? `https://www.google.com/maps/search/${encodeURIComponent(selectedRequest.location_name)}`
+                    : selectedRequest.location_link
+                }
                 target="_blank"
                 rel="noreferrer"
                 className="flex items-center gap-2 text-sky-500 text-sm hover:underline"
               >
-                <ExternalLink size={14} /> View on Google Maps
+                <ExternalLink size={14} />
+                {selectedRequest.location_name
+                  ? `View "${selectedRequest.location_name}" on Google Maps`
+                  : "View on Google Maps"}
               </a>
             )}
 
@@ -434,7 +460,6 @@ export function MyBidsPage() {
                 />
               </div>
             )}
-
             <div className="flex gap-3 pt-2">
               <Button
                 className="flex-1 bg-sky-500 hover:bg-sky-600 text-white flex items-center justify-center gap-2"
@@ -458,7 +483,6 @@ export function MyBidsPage() {
           onClose={() => setShowPrefsModal(false)}
         />
       )}
-
     </div>
   );
 }
@@ -466,11 +490,8 @@ export function MyBidsPage() {
 /* ─── Request Card ──────────────────────────────────────────── */
 function RequestCard({ request, onBid, onDetails }) {
   const colorClass = CATEGORY_COLORS[request.category] || "bg-gray-100 text-gray-600";
-
   return (
     <div className="bg-white p-6 rounded-2xl shadow border hover:shadow-md transition">
-
-      {/* Title row */}
       <div className="flex justify-between mb-2">
         <h3 className="text-base font-semibold leading-snug line-clamp-2 flex-1 pr-3">
           {request.description}
@@ -479,13 +500,9 @@ function RequestCard({ request, onBid, onDetails }) {
           {timeAgo(request.created_at)}
         </span>
       </div>
-
-      {/* Category */}
       <span className={`inline-block text-xs px-3 py-1 rounded-full mb-4 font-medium ${colorClass}`}>
         {request.category}
       </span>
-
-      {/* Client row */}
       <div className="flex justify-between items-center bg-blue-50 p-3 rounded-lg mb-4">
         <div className="flex items-center gap-3">
           <div className="w-8 h-8 bg-blue-400 text-white rounded-full flex items-center justify-center font-bold text-sm">
@@ -501,8 +518,6 @@ function RequestCard({ request, onBid, onDetails }) {
           <span className="text-sm">New</span>
         </div>
       </div>
-
-      {/* Info grid */}
       <div className="grid grid-cols-2 gap-3 mb-4 text-sm">
         <div className="flex items-center gap-2 bg-green-50 p-3 rounded-lg">
           <DollarSign size={15} className="text-green-600 shrink-0" />
@@ -521,16 +536,12 @@ function RequestCard({ request, onBid, onDetails }) {
           <span>{request.time}</span>
         </div>
       </div>
-
-      {/* Bid count */}
       <div className="bg-yellow-50 p-3 rounded-lg text-sm flex items-center gap-2 mb-4">
         <AlertCircle size={15} className="text-yellow-600 shrink-0" />
         {request.totalBids === 0
           ? "Be the first to bid!"
           : `${request.totalBids} bid${request.totalBids !== 1 ? "s" : ""} submitted already`}
       </div>
-
-      {/* Buttons */}
       <div className="flex gap-3">
         <Button
           onClick={onBid}
@@ -553,19 +564,17 @@ function RequestCard({ request, onBid, onDetails }) {
 /* ─── Preferences Modal ─────────────────────────────────────── */
 function PreferencesModal({ current, onSave, onClose }) {
   const [selected, setSelected] = useState(current);
-
   const toggle = (val) =>
     setSelected((prev) =>
       prev.includes(val) ? prev.filter((v) => v !== val) : [...prev, val]
     );
-
   return (
     <Modal title="Set Job Preferences" onClose={onClose}>
       <p className="text-sm text-gray-500 mb-4">
-        Choose the service categories you're interested in. This saves your preference for quick filtering.
+        Choose the service categories you're interested in.
       </p>
       <div className="space-y-2 mb-6">
-        {CATEGORIES.filter((c) => c.value).map((cat) => (
+        {CATEGORIES.map((cat) => (
           <label key={cat.value} className="flex items-center gap-3 p-3 rounded-xl border cursor-pointer hover:bg-sky-50 transition">
             <input
               type="checkbox"
