@@ -132,7 +132,10 @@ def login(user: dict):
 
     return {"status": "success", "user": db_user}
 
+<<<<<<< HEAD
 
+=======
+>>>>>>> 3eb43f3df9700fcbce3928912eef1ed2a7024f2f
 # ================================================================
 # ---------------- CREATE REQUEST (FIXED STATUS HERE) ----------------
 # ================================================================
@@ -265,8 +268,12 @@ def submit_bid(data: dict):
     request = db.requests.find_one({"id": data["request_id"]})
     if not request:
         raise HTTPException(status_code=404, detail="Request not found")
+<<<<<<< HEAD
 
     if request.get("status") != "pending":
+=======
+    if request.get("status") not in ["pending", "open"]:
+>>>>>>> 3eb43f3df9700fcbce3928912eef1ed2a7024f2f
         raise HTTPException(status_code=400, detail="This request is no longer open for bids")
 
     provider = db.provider.find_one({"email": data["provider_email"]})
