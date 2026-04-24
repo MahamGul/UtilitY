@@ -8,22 +8,40 @@ export function CustomerAvailableOffers() {
   const navigate = useNavigate();
   const location = useLocation();
 
-  // 🔥 we expect requestId passed from previous page
-  const requestId = location.state?.requestId;
+  /* ---------------- SAFE REQUEST ID RESOLUTION ---------------- */
+  const requestId =
+    location.state?.requestId ||
+    location.state?.id ||
+    location.state?.requestId?._id ||
+    location.state?.request?._id ||
+    location.state?._id ||
+    null;
 
   const [bids, setBids] = useState([]);
   const [loading, setLoading] = useState(true);
   const [acceptedBid, setAcceptedBid] = useState(null);
 
-  /* ---------------- FETCH REAL BIDS ---------------- */
+  /* ---------------- DEBUG (IMPORTANT) ---------------- */
+  useEffect(() => {
+    console.log("📦 LOCATION STATE:", location.state);
+    console.log("🔥 FINAL REQUEST ID:", requestId);
+  }, [requestId]);
+
+  /* ---------------- FETCH BIDS ---------------- */
   useEffect(() => {
     const fetchBids = async () => {
       try {
-        if (!requestId) return;
+        if (!requestId) {
+          console.warn("❌ No requestId found. Cannot fetch bids.");
+          setLoading(false);
+          return;
+        }
 
         const res = await axios.get(
           `http://localhost:8000/bids/request/${requestId}`
         );
+
+        console.log("📩 BIDS RESPONSE:", res.data);
 
         setBids(res.data || []);
       } catch (err) {
@@ -37,17 +55,19 @@ export function CustomerAvailableOffers() {
   }, [requestId]);
 
   /* ---------------- ACCEPT BID ---------------- */
-  const handleAccept = async (bidId, providerEmail) => {
+  const handleAccept = async (bidId) => {
     try {
-      setAcceptedBid(bidId);
+      const user = JSON.parse(localStorage.getItem("user"));
 
       await axios.put(
         `http://localhost:8000/bids/${bidId}/status`,
         {
           status: "accepted",
-          customer_email: JSON.parse(localStorage.getItem("user"))?.email
+          customer_email: user?.email,
         }
       );
+
+      setAcceptedBid(bidId);
 
       setTimeout(() => {
         navigate("/customer-dashboard");
@@ -55,6 +75,7 @@ export function CustomerAvailableOffers() {
 
     } catch (err) {
       console.log("Accept error:", err);
+      setAcceptedBid(null);
     }
   };
 
@@ -66,7 +87,33 @@ export function CustomerAvailableOffers() {
   if (loading) {
     return createPortal(
       <div className="fixed inset-0 flex justify-center items-center bg-black/30">
-        <div className="bg-white p-6 rounded-xl">Loading offers...</div>
+        <div className="bg-white p-6 rounded-xl animate-pulse">
+          Loading offers...
+        </div>
+      </div>,
+      document.body
+    );
+  }
+
+  /* ---------------- NO REQUEST ID GUARD ---------------- */
+  if (!requestId) {
+    return createPortal(
+      <div className="fixed inset-0 flex justify-center items-center bg-black/40">
+        <div className="bg-white p-6 rounded-xl text-center">
+          <h2 className="text-lg font-bold text-red-500">
+            No Request Selected
+          </h2>
+          <p className="text-gray-600 mt-2">
+            Cannot load bids because requestId is missing.
+          </p>
+
+          <button
+            onClick={() => navigate("/customer-dashboard")}
+            className="mt-4 bg-blue-500 text-white px-4 py-2 rounded-xl"
+          >
+            Go Back
+          </button>
+        </div>
       </div>,
       document.body
     );
@@ -84,7 +131,8 @@ export function CustomerAvailableOffers() {
             <h2 className="text-2xl font-bold">Service Offers</h2>
 
             <p className="text-gray-500 text-sm">
-              {bids[0]?.request_snapshot?.category || "Service"} • {bids.length} offers received
+              {bids?.[0]?.request_snapshot?.category ?? "Service"} •{" "}
+              {bids.length} offers received
             </p>
           </div>
 
@@ -109,14 +157,14 @@ export function CustomerAvailableOffers() {
           {bids.map((bid) => (
             <div
               key={bid.id}
-              className={`border rounded-xl p-4 ${
+              className={`border rounded-xl p-4 transition ${
                 acceptedBid === bid.id
                   ? "border-green-400 bg-green-50"
                   : "border-gray-200"
               }`}
             >
 
-              {/* PROVIDER INFO */}
+              {/* PROVIDER */}
               <div className="flex justify-between items-start mb-2">
 
                 <div className="flex gap-3 items-center">
@@ -124,16 +172,16 @@ export function CustomerAvailableOffers() {
                   <img
                     src={`https://ui-avatars.com/api/?name=${bid.provider_name}`}
                     className="w-12 h-12 rounded-full"
+                    alt="provider"
                   />
 
                   <div>
-                    <p className="font-semibold">
-                      {bid.provider_name}
-                    </p>
+                    <p className="font-semibold">{bid.provider_name}</p>
 
                     <p className="text-sm text-gray-500">
                       <Star className="inline w-4 h-4 text-yellow-400 mr-1" />
-                      {bid.provider_rating || 0} • {bid.provider_service_type || "Provider"}
+                      {bid.provider_rating || 0} •{" "}
+                      {bid.provider_service_type || "Provider"}
                     </p>
                   </div>
                 </div>
@@ -148,22 +196,23 @@ export function CustomerAvailableOffers() {
                 {bid.message || "No message provided"}
               </p>
 
-              {/* EXTRA INFO */}
+              {/* EXTRA */}
               <div className="text-xs text-gray-500 mb-3">
-                ⏱ {bid.completion_time} • 📍 {bid.availability}
+                ⏱ {bid.completion_time || "Not specified"} • 📍{" "}
+                {bid.availability || "Not specified"}
               </div>
 
               {/* ACTIONS */}
               <div className="flex gap-2">
 
                 <button
-                  onClick={() => handleAccept(bid.id, bid.provider_email)}
-                  className={`flex-1 py-2 rounded-xl text-white ${
+                  onClick={() => handleAccept(bid.id)}
+                  className={`flex-1 py-2 rounded-xl text-white transition ${
                     acceptedBid === bid.id
                       ? "bg-green-500"
-                      : "bg-blue-500"
+                      : "bg-blue-500 hover:bg-blue-600"
                   }`}
-                  disabled={acceptedBid !== null}
+                  disabled={acceptedBid && acceptedBid !== bid.id}
                 >
                   {acceptedBid === bid.id ? "Accepted!" : "Accept Offer"}
                 </button>

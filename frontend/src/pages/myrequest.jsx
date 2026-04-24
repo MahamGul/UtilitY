@@ -1,10 +1,9 @@
-import { Link, useNavigate } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
 import {
   PlusCircle,
   Clock,
   CheckCircle,
-  RefreshCw,
-  DollarSign
+  RefreshCw
 } from "lucide-react";
 import { useEffect, useState } from "react";
 import axios from "axios";
@@ -55,13 +54,14 @@ const getUrgencyColor = (urgency) => {
 /* ---------------- COMPONENT ---------------- */
 export function ActiveRequestsPage() {
   const navigate = useNavigate();
+
   const [filterStatus, setFilterStatus] = useState("all");
   const [searchQuery, setSearchQuery] = useState("");
   const [requests, setRequests] = useState([]);
 
   const userEmail = JSON.parse(localStorage.getItem("user"))?.email;
 
-  /* ---------------- FETCH DATA ---------------- */
+  /* ---------------- FETCH REQUESTS ---------------- */
   useEffect(() => {
     const fetchRequests = async () => {
       try {
@@ -78,34 +78,20 @@ export function ActiveRequestsPage() {
     if (userEmail) fetchRequests();
   }, [userEmail]);
 
-  /* ------------ FILTERING ------------ */
+  /* ---------------- FILTER ---------------- */
   const filteredRequests = requests.filter((request) => {
     const matchesFilter =
       filterStatus === "all" || request.status === filterStatus;
 
     const matchesSearch =
-      (request.category || "")
-        .toLowerCase()
-        .includes(searchQuery.toLowerCase()) ||
-      (request.description || "")
-        .toLowerCase()
-        .includes(searchQuery.toLowerCase()) ||
-      (request.id || "")
-        .toLowerCase()
-        .includes(searchQuery.toLowerCase());
+      (request.category || "").toLowerCase().includes(searchQuery.toLowerCase()) ||
+      (request.description || "").toLowerCase().includes(searchQuery.toLowerCase()) ||
+      (request.id || "").toLowerCase().includes(searchQuery.toLowerCase());
 
     return matchesFilter && matchesSearch;
   });
 
-  /* ------------ STATS ------------ */
-  const stats = {
-    pending: requests.filter((r) => r.status === "pending").length,
-    accepted: requests.filter((r) => r.status === "accepted").length,
-    inProgress: requests.filter((r) => r.status === "in_progress").length,
-    totalResponses: 0 // backend doesn't send this yet
-  };
-
-  /* ------------ UI ------------ */
+  /* ---------------- UI ---------------- */
   return (
     <div className="min-h-screen bg-gray-50 p-6">
 
@@ -127,35 +113,6 @@ export function ActiveRequestsPage() {
           <PlusCircle className="w-4 h-4 mr-2" />
           New Request
         </button>
-      </div>
-
-      {/* STATS */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
-
-        <div className="bg-white p-4 rounded-xl border shadow-sm flex items-center gap-3">
-          <Clock className="text-yellow-600" />
-          <div>
-            <p className="text-sm text-gray-500">Pending</p>
-            <p className="font-bold text-lg">{stats.pending}</p>
-          </div>
-        </div>
-
-        <div className="bg-white p-4 rounded-xl border shadow-sm flex items-center gap-3">
-          <CheckCircle className="text-blue-600" />
-          <div>
-            <p className="text-sm text-gray-500">Accepted</p>
-            <p className="font-bold text-lg">{stats.accepted}</p>
-          </div>
-        </div>
-
-        <div className="bg-white p-4 rounded-xl border shadow-sm flex items-center gap-3">
-          <RefreshCw className="text-purple-600" />
-          <div>
-            <p className="text-sm text-gray-500">In Progress</p>
-            <p className="font-bold text-lg">{stats.inProgress}</p>
-          </div>
-        </div>
-
       </div>
 
       {/* FILTER */}
@@ -191,20 +148,14 @@ export function ActiveRequestsPage() {
 
               {/* HEADER */}
               <div className="flex justify-between">
-                <h3 className="font-semibold">
-                  {request.category}
-                </h3>
+                <h3 className="font-semibold">{request.category}</h3>
 
-                <span
-                  className={`px-2 py-1 text-xs rounded-lg border ${getUrgencyColor(
-                    request.urgency
-                  )}`}
-                >
+                <span className={`px-2 py-1 text-xs rounded-lg border ${getUrgencyColor(request.urgency)}`}>
                   {request.urgency || "normal"}
                 </span>
               </div>
 
-              {/* DESC */}
+              {/* DESCRIPTION */}
               <p className="text-sm text-gray-600 mt-2">
                 {request.description}
               </p>
@@ -216,20 +167,23 @@ export function ActiveRequestsPage() {
               </div>
 
               {/* STATUS */}
-              <div
-                className={`flex items-center gap-2 text-xs px-3 py-1 rounded-lg border w-fit mt-4 ${statusConfig.color}`}
-              >
+              <div className={`flex items-center gap-2 text-xs px-3 py-1 rounded-lg border w-fit mt-4 ${statusConfig.color}`}>
                 <StatusIcon className="w-3 h-3" />
                 {statusConfig.label}
               </div>
 
               {/* ACTIONS */}
               <div className="mt-4">
+
                 {request.status === "pending" && (
                   <button
                     className="w-full bg-gray-100 py-2 rounded-xl text-sm"
                     onClick={() =>
-                      navigate("/customer-available-offers")
+                      navigate("/customer-available-offers", {
+                        state: {
+                          requestId: request.id   // ✅ FIXED HERE
+                        }
+                      })
                     }
                   >
                     View Offers
@@ -247,7 +201,9 @@ export function ActiveRequestsPage() {
                     Mark Complete
                   </button>
                 )}
+
               </div>
+
             </div>
           );
         })}
