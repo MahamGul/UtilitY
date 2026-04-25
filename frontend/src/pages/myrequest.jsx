@@ -3,7 +3,8 @@ import {
   PlusCircle,
   Clock,
   CheckCircle,
-  RefreshCw
+  RefreshCw,
+  XCircle
 } from "lucide-react";
 import { useEffect, useState } from "react";
 import axios from "axios";
@@ -17,17 +18,23 @@ const getStatusConfig = (status) => {
         icon: Clock,
         label: "Pending"
       };
-    case "accepted":
-      return {
-        color: "bg-blue-100 text-blue-700 border-blue-200",
-        icon: CheckCircle,
-        label: "Accepted"
-      };
     case "in_progress":
       return {
         color: "bg-purple-100 text-purple-700 border-purple-200",
         icon: RefreshCw,
         label: "In Progress"
+      };
+    case "cancelled":
+      return {
+        color: "bg-red-100 text-red-700 border-red-200",
+        icon: XCircle,
+        label: "Cancelled"
+      };
+    case "completed":
+      return {
+        color: "bg-green-100 text-green-700 border-green-200",
+        icon: CheckCircle,
+        label: "Completed"
       };
     default:
       return {
@@ -62,21 +69,57 @@ export function ActiveRequestsPage() {
   const userEmail = JSON.parse(localStorage.getItem("user"))?.email;
 
   /* ---------------- FETCH REQUESTS ---------------- */
+  const fetchRequests = async () => {
+    try {
+      const res = await axios.get(
+        `http://localhost:8000/requests/${userEmail}`
+      );
+      setRequests(res.data || []);
+    } catch (err) {
+      console.log("Error fetching requests:", err);
+    }
+  };
+
   useEffect(() => {
-    const fetchRequests = async () => {
-      try {
-        const res = await axios.get(
-          `http://localhost:8000/requests/${userEmail}`
-        );
-
-        setRequests(res.data || []);
-      } catch (err) {
-        console.log("Error fetching requests:", err);
-      }
-    };
-
     if (userEmail) fetchRequests();
   }, [userEmail]);
+
+  /* ---------------- ACTIONS ---------------- */
+
+  const handleMarkComplete = async (request) => {
+    if (!request.service_started) {
+      alert("Service not started by the provider");
+      return;
+    }
+
+    try {
+      await axios.put(
+        `http://localhost:8000/requests/${request.id}/complete`,
+        {
+          customer_email: userEmail
+        }
+      );
+
+      fetchRequests();
+    } catch (err) {
+      console.log("Error marking complete:", err);
+    }
+  };
+
+  const handleCancel = async (requestId) => {
+    try {
+      await axios.put(
+        `http://localhost:8000/requests/${requestId}/cancel`,
+        {
+          customer_email: userEmail
+        }
+      );
+
+      fetchRequests();
+    } catch (err) {
+      console.log("Error cancelling request:", err);
+    }
+  };
 
   /* ---------------- FILTER ---------------- */
   const filteredRequests = requests.filter((request) => {
@@ -117,7 +160,7 @@ export function ActiveRequestsPage() {
 
       {/* FILTER */}
       <div className="flex gap-2 mb-6 flex-wrap">
-        {["all", "pending", "accepted", "in_progress"].map((status) => (
+        {["all", "pending", "in_progress", "completed", "cancelled"].map((status) => (
           <button
             key={status}
             onClick={() => setFilterStatus(status)}
@@ -173,33 +216,46 @@ export function ActiveRequestsPage() {
               </div>
 
               {/* ACTIONS */}
-              <div className="mt-4">
+              <div className="mt-4 space-y-2">
 
                 {request.status === "pending" && (
-                  <button
-                    className="w-full bg-gray-100 py-2 rounded-xl text-sm"
-                    onClick={() =>
-                      navigate("/customer-available-offers", {
-                        state: {
-                          requestId: request.id   // ✅ FIXED HERE
-                        }
-                      })
-                    }
-                  >
-                    View Offers
-                  </button>
-                )}
+                  <>
+                    <button
+                      className="w-full bg-gray-100 py-2 rounded-xl text-sm"
+                      onClick={() =>
+                        navigate("/customer-available-offers", {
+                          state: { requestId: request.id }
+                        })
+                      }
+                    >
+                      View Offers
+                    </button>
 
-                {request.status === "accepted" && (
-                  <button className="w-full bg-blue-600 text-white py-2 rounded-xl text-sm">
-                    Contact Provider
-                  </button>
+                    <button
+                      onClick={() => handleCancel(request.id)}
+                      className="w-full bg-red-500 text-white py-2 rounded-xl text-sm"
+                    >
+                      Cancel Request
+                    </button>
+                  </>
                 )}
 
                 {request.status === "in_progress" && (
-                  <button className="w-full bg-green-600 text-white py-2 rounded-xl text-sm">
-                    Mark Complete
-                  </button>
+                  <>
+                    <button
+                      onClick={() => handleMarkComplete(request)}
+                      className="w-full bg-green-600 text-white py-2 rounded-xl text-sm"
+                    >
+                      Mark Complete
+                    </button>
+
+                    <button
+                      onClick={() => handleCancel(request.id)}
+                      className="w-full bg-red-500 text-white py-2 rounded-xl text-sm"
+                    >
+                      Cancel Request
+                    </button>
+                  </>
                 )}
 
               </div>

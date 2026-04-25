@@ -837,3 +837,52 @@ def mark_request_complete(request_id: str, data: dict):
         "message":      "Task marked as complete",
         "completed_at": completed_at
     }
+@app.put("/requests/{request_id}/cancel")
+def cancel_request(request_id: str, data: dict):
+
+    customer_email = data.get("customer_email")
+    if not customer_email:
+        raise HTTPException(status_code=400, detail="customer_email is required")
+
+    request = db.requests.find_one({"id": request_id})
+    if not request:
+        raise HTTPException(status_code=404, detail="Request not found")
+
+    if request["user_email"] != customer_email:
+        raise HTTPException(status_code=403, detail="Not authorized")
+
+    # 🚫 Prevent cancelling completed requests
+    if request.get("status") == "completed":
+        raise HTTPException(status_code=400, detail="Cannot cancel completed request")
+
+    cancelled_at = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+
+    db.requests.update_one(
+        {"id": request_id},
+        {
+            "$set": {
+                "status": "cancelled",
+                "cancelled_at": cancelled_at,
+                "service_started": False   # optional safety reset
+            }
+        }
+    )
+
+    # ❗ Also update bid so provider sees it
+    accepted_bid_id = request.get("accepted_bid_id")
+    if accepted_bid_id:
+        db.bids.update_one(
+            {"id": accepted_bid_id},
+            {
+                "$set": {
+                    "status": "cancelled",
+                    "cancelled_at": cancelled_at
+                }
+            }
+        )
+
+    return {
+        "status": "success",
+        "message": "Request cancelled",
+        "cancelled_at": cancelled_at
+    }
