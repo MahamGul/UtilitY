@@ -704,3 +704,136 @@ def delete_customer(email: str):
     db.user.delete_one({"email": email})
 
     return {"status": "success", "message": "Account deleted permanently"}
+
+# ================================================================
+# PUT /bids/{bid_id}/start
+# Called by provider when they click "Start My Service".
+# - Validates bid is accepted and belongs to this provider
+# - Stores provider GPS coords + readable address in the bid
+# - Sets service_started = True, status = "in_progress" on bid
+# - Mirrors those flags onto the request so the customer sees it
+# ================================================================
+ 
+@app.put("/bids/{bid_id}/start")
+def start_service(bid_id: str, data: dict):
+ 
+    provider_email   = data.get("provider_email")
+    latitude         = data.get("latitude")
+    longitude        = data.get("longitude")
+    provider_address = data.get("provider_address", "")   # human-readable from Nominatim
+ 
+    # -- Basic validation --
+    if not provider_email:
+        raise HTTPException(status_code=400, detail="provider_email is required")
+    if latitude is None or longitude is None:
+        raise HTTPException(status_code=400, detail="latitude and longitude are required")
+ 
+    # -- Fetch & validate the bid --
+    bid = db.bids.find_one({"id": bid_id})
+    if not bid:
+        raise HTTPException(status_code=404, detail="Bid not found")
+    if bid["provider_email"] != provider_email:
+        raise HTTPException(status_code=403, detail="Not authorized")
+    if bid["status"] != "accepted":
+        raise HTTPException(status_code=400, detail="Only accepted bids can be started")
+ 
+    started_at = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+ 
+    # -- Update bid document --
+    db.bids.update_one(
+        {"id": bid_id},
+        {
+            "$set": {
+                "service_started":        True,
+                "service_started_at":     started_at,
+                "provider_start_address": provider_address,
+                "provider_start_location": {
+                    "type": "Point",
+                    "coordinates": [longitude, latitude]
+                },
+                "status": "in_progress"
+            }
+        }
+    )
+ 
+    # -- Mirror onto the request so customer side can react --
+    db.requests.update_one(
+        {"id": bid["request_id"]},
+        {
+            "$set": {
+                "status":                 "in_progress",
+                "service_started":        True,
+                "service_started_at":     started_at,
+                "provider_email":         provider_email,
+                "provider_start_address": provider_address,
+                "provider_start_location": {
+                    "type": "Point",
+                    "coordinates": [longitude, latitude]
+                }
+            }
+        }
+    )
+ 
+    return {
+        "status":     "success",
+        "message":    "Service started",
+        "started_at": started_at
+    }
+ 
+ 
+# ================================================================
+# PUT /requests/{request_id}/complete
+# Called by the customer to mark a job as done.
+# - Validates request belongs to the customer
+# - Sets status = "completed", task_completed = True on request
+# - Sets the accepted bid to "completed" as well
+# ================================================================
+ 
+@app.put("/requests/{request_id}/complete")
+def mark_request_complete(request_id: str, data: dict):
+ 
+    customer_email = data.get("customer_email")
+    if not customer_email:
+        raise HTTPException(status_code=400, detail="customer_email is required")
+ 
+    # -- Fetch & validate the request --
+    request = db.requests.find_one({"id": request_id})
+    if not request:
+        raise HTTPException(status_code=404, detail="Request not found")
+    if request["user_email"] != customer_email:
+        raise HTTPException(status_code=403, detail="Not authorized")
+    if request.get("status") != "in_progress":
+        raise HTTPException(status_code=400, detail="Only in-progress requests can be marked complete")
+ 
+    completed_at = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+ 
+    # -- Update request --
+    db.requests.update_one(
+        {"id": request_id},
+        {
+            "$set": {
+                "status":         "completed",
+                "task_completed": True,
+                "completed_at":   completed_at
+            }
+        }
+    )
+ 
+    # -- Update the accepted bid --
+    accepted_bid_id = request.get("accepted_bid_id")
+    if accepted_bid_id:
+        db.bids.update_one(
+            {"id": accepted_bid_id},
+            {
+                "$set": {
+                    "status":       "completed",
+                    "completed_at": completed_at
+                }
+            }
+        )
+ 
+    return {
+        "status":       "success",
+        "message":      "Task marked as complete",
+        "completed_at": completed_at
+    }
