@@ -611,6 +611,10 @@ function ActivityItem({ icon, label, value, bg }) {
   );
 }
 
+// ================================================================
+// FIX: ToggleItem — use onChange on the input instead of onClick
+// on the label, and remove readOnly so React handles state properly
+// ================================================================
 function ToggleItem({ label, description, checked, onChange }) {
   return (
     <div className="flex items-center justify-between p-4 bg-gray-50 rounded-xl">
@@ -618,8 +622,13 @@ function ToggleItem({ label, description, checked, onChange }) {
         <p className="font-semibold">{label}</p>
         <p className="text-sm text-gray-500">{description}</p>
       </div>
-      <label className="relative inline-flex items-center cursor-pointer" onClick={onChange}>
-        <input type="checkbox" className="sr-only peer" checked={checked} readOnly />
+      <label className="relative inline-flex items-center cursor-pointer">
+        <input
+          type="checkbox"
+          className="sr-only peer"
+          checked={checked}
+          onChange={onChange}
+        />
         <div className="w-11 h-6 bg-gray-200 rounded-full peer peer-checked:bg-blue-600 after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border after:border-gray-300 after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:after:translate-x-full peer-checked:after:border-white"></div>
       </label>
     </div>
