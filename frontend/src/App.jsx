@@ -13,6 +13,7 @@ import { ActiveRequestsPage } from "./pages/myrequest";
 import { PostRequestPage } from "./pages/postrequest";
 import ServiceHistoryPage from "./pages/servicehistory";
 import { CustomerAvailableOffers } from "./pages/customeravailableoffers";
+import CustomerMessages from "./pages/customermessages";
 
 // Provider pages
 import ProviderDashboard from "./pages/provider_dashboard";
@@ -37,6 +38,7 @@ export default function App() {
           <Route path="my-requests" element={<ActiveRequestsPage />} />
           <Route path="post-request" element={<PostRequestPage />} />
           <Route path="history" element={<ServiceHistoryPage />} />
+          <Route path="messages" element={<CustomerMessages />} />
         </Route>
 
         {/* Customer offers page */}
