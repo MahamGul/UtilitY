@@ -876,3 +876,74 @@ def cancel_request(request_id: str, data: dict):
         "message": "Request cancelled",
         "cancelled_at": cancelled_at
     }
+
+# ================================================================
+# ----------------  MESSAGES / CHAT  -----------------------------
+# ================================================================
+
+@app.post("/messages")
+def send_message(data: dict):
+
+    required = ["sender", "receiver", "text"]
+
+    for field in required:
+        if field not in data or data[field] == "":
+            raise HTTPException(status_code=400, detail=f"{field} is required")
+
+    message = {
+        "id": str(uuid.uuid4()),
+        "sender": data["sender"],
+        "receiver": data["receiver"],
+        "text": data["text"],
+        "timestamp": datetime.now(timezone.utc)    
+        }
+
+    db.messages.insert_one(message)
+
+    return {"status": "success"}
+
+
+@app.get("/messages/{user1}/{user2}")
+def get_messages(user1: str, user2: str):
+
+    messages = list(
+        db.messages.find({
+            "$or": [
+                {"sender": user1, "receiver": user2},
+                {"sender": user2, "receiver": user1}
+            ]
+        }, {"_id": 0})
+    )
+
+    messages.sort(key=lambda x: x["timestamp"])
+
+    return messages
+
+@app.get("/conversations/{email}")
+def get_conversations(email: str):
+
+    messages = list(db.messages.find({
+        "$or": [
+            {"sender": email},
+            {"receiver": email}
+        ]
+    }))
+
+    convo_map = {}
+
+    for msg in messages:
+        other = msg["receiver"] if msg["sender"] == email else msg["sender"]
+
+        if other not in convo_map or msg["timestamp"] > convo_map[other]["timestamp"]:
+            convo_map[other] = {
+                "user": other,
+                "lastMessage": msg["text"],
+                "timestamp": msg["timestamp"]
+            }
+
+    return sorted(
+    convo_map.values(),
+    key=lambda x: x["timestamp"],
+    reverse=True
+)
+
