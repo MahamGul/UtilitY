@@ -20,6 +20,7 @@ import ProviderDashboard from "./pages/provider_dashboard";
 import ProviderProfilePage from "./pages/provider_profile";
 import { BidsHistoryPage } from "./pages/bids_history";
 import { MyBidsPage } from "./pages/my_bids";
+import ProviderMessages from "./pages/provider_messages";
 
 export default function App() {
   return (
@@ -52,6 +53,7 @@ export default function App() {
         <Route path="/provider-profile" element={<ProviderProfilePage />} />
         <Route path="/bids-history" element={<BidsHistoryPage />} />
         <Route path="/my-bids" element={<MyBidsPage />} />
+        <Route path="/provider-messages" element={<ProviderMessages />} />
 
         {/* Fallback */}
         <Route path="*" element={<Navigate to="/" />} />
