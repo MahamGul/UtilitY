@@ -47,7 +47,11 @@ export default function CustomerDashboard() {
         const normalized = data.map(item => ({
           ...item,
           id: item.id || item._id,
-          status: item.status?.toLowerCase()
+          status: item.status?.toLowerCase(),
+
+          // IMPORTANT FIX:
+          // backend must provide this OR default false
+          feedback_given: item.feedback_given ?? false
         }));
 
         setActiveRequests(normalized);
@@ -65,7 +69,8 @@ export default function CustomerDashboard() {
   const inProgress = activeRequests.filter(r => r.status === "in_progress");
   const completed = activeRequests.filter(r => r.status === "completed");
 
-  const unrated = completed.filter(r => !r.feedback_given);
+  // ONLY NOT YET RATED
+  const unrated = completed.filter(r => r.feedback_given === false);
 
   // ---------------- RATING ----------------
   const [showRatingModal, setShowRatingModal] = useState(false);
@@ -88,7 +93,7 @@ export default function CustomerDashboard() {
     setReviewText("");
   };
 
-  // ESC key close
+  // ESC close
   useEffect(() => {
     const handleEsc = (e) => {
       if (e.key === "Escape") closeModal();
@@ -121,7 +126,7 @@ export default function CustomerDashboard() {
         return;
       }
 
-      // update UI instantly
+      // ---------------- IMPORTANT UI UPDATE ----------------
       setActiveRequests(prev =>
         prev.map(r =>
           r.id === selectedService.id
@@ -172,16 +177,14 @@ export default function CustomerDashboard() {
         <StatCard title="To Rate" count={unrated.length} icon={<Star />} color="bg-orange-100 text-orange-600" />
       </div>
 
-      {/* ✅ NEW: LIST OF SERVICES TO RATE */}
+      {/* COMPLETED SERVICES */}
       {unrated.length > 0 && (
         <div className="mx-8 mt-6">
-
           <h2 className="text-xl font-bold mb-4">
             Rate Your Completed Services
           </h2>
 
           <div className="grid gap-4">
-
             {unrated.map(service => (
               <div
                 key={service.id}
@@ -213,7 +216,6 @@ export default function CustomerDashboard() {
                 </button>
               </div>
             ))}
-
           </div>
         </div>
       )}
@@ -225,21 +227,17 @@ export default function CustomerDashboard() {
           onClick={closeModal}
         >
           <div
-            className="bg-white p-6 rounded-xl w-[400px] relative"
+            className="bg-white p-6 rounded-xl w-[400px]"
             onClick={(e) => e.stopPropagation()}
           >
             <button
               onClick={closeModal}
-              className="absolute top-3 right-3 text-gray-400 hover:text-black text-lg"
+              className="absolute top-3 right-3 text-gray-400 hover:text-black"
             >
               ✕
             </button>
 
             <h2 className="text-xl font-bold mb-2">Rate Service</h2>
-
-            <p className="text-gray-500 mb-4">
-              {selectedService.category}
-            </p>
 
             <div className="flex justify-center gap-2 mb-4">
               {[1,2,3,4,5].map(star => (

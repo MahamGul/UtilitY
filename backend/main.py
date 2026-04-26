@@ -939,11 +939,17 @@ def submit_feedback(data: dict):
 
     db.feedback.insert_one(feedback)
 
+    # ---------------- ⭐ IMPORTANT FIX ----------------
+    # Mark request as rated so frontend can hide it
+    db.requests.update_one(
+        {"id": request["id"]},
+        {"$set": {"feedback_given": True}}
+    )
+
     # ---------------- UPDATE PROVIDER RATING ----------------
     old_rating = provider.get("rating", 0)
     jobs = provider.get("jobsCompleted", 0)
 
-    # ⚠️ IMPORTANT: avoid division error
     if jobs == 0:
         new_rating = feedback["rating"]
         new_jobs = 1
