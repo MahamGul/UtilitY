@@ -54,9 +54,8 @@ function LocationPicker({ setMarkerPos, setAddress }) {
       const data = await res.json();
       const a = data.address || {};
 
-      // Build a clean, readable address: shop/building name + road + area + city
       const parts = [
-        a.shop || a.amenity || a.building || a.office || a.tourism,  // named place
+        a.shop || a.amenity || a.building || a.office || a.tourism,
         a.house_number ? `${a.house_number} ${a.road || ""}`.trim() : a.road || a.pedestrian || a.footway || a.path,
         a.suburb || a.neighbourhood || a.quarter || a.residential,
         a.city_district || a.county,
@@ -93,6 +92,12 @@ function StartServiceModal({ bid, onClose, onStarted }) {
   const [step,      setStep]      = useState("pick");
   const [errMsg,    setErrMsg]    = useState("");
 
+  // Lock body scroll while modal is open
+  useEffect(() => {
+    document.body.style.overflow = "hidden";
+    return () => { document.body.style.overflow = ""; };
+  }, []);
+
   const providerEmail = JSON.parse(localStorage.getItem("user") || "{}").email || "";
 
   const confirmStart = async () => {
@@ -120,8 +125,10 @@ function StartServiceModal({ bid, onClose, onStarted }) {
   };
 
   return (
-    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-      <div className="bg-white w-full max-w-lg rounded-2xl shadow-2xl overflow-hidden">
+    // ✅ FIX: overlay scrolls vertically; items-start + my-auto keeps modal
+    // centred when there's room but allows it to scroll on short viewports.
+    <div className="fixed inset-0 bg-black/50 flex items-start justify-center z-50 p-4 overflow-y-auto">
+      <div className="bg-white w-full max-w-lg rounded-2xl shadow-2xl overflow-hidden my-auto">
 
         <div className="flex items-center justify-between px-6 py-4 border-b">
           <h2 className="text-xl font-bold flex items-center gap-2">
@@ -318,8 +325,6 @@ export function BidsHistoryPage() {
   };
 
   const handleServiceStarted = () => {
-    // Re-fetch from server so provider_start_location and provider_start_address
-    // are present in the bid object for the "Your Start Location" panel
     fetchBids();
   };
 
@@ -429,7 +434,6 @@ function BidCard({ bid, expanded, onToggle, onWithdraw, withdrawing, onStartServ
   const isInProgress = bid.status === "in_progress";
   const isCompleted  = bid.status === "completed";
 
-  // Extract provider start coords from the bid if available
   const providerCoords = bid.provider_start_location?.coordinates
     ? {
         lng: bid.provider_start_location.coordinates[0],
@@ -555,7 +559,6 @@ function BidCard({ bid, expanded, onToggle, onWithdraw, withdrawing, onStartServ
       {expanded && (
         <div className="border-t bg-gray-50 p-6 space-y-6">
 
-          {/* Top two-column grid */}
           <div className="grid sm:grid-cols-2 gap-6">
 
             <DetailSection title="Your Bid Details">
@@ -593,7 +596,7 @@ function BidCard({ bid, expanded, onToggle, onWithdraw, withdrawing, onStartServ
 
           </div>
 
-          {/* Provider start location card — shown only when service has been started */}
+          {/* Provider start location card */}
           {bid.service_started && (bid.provider_start_address || providerCoords) && (
             <div className="border-t pt-5">
               <h4 className="text-xs font-semibold uppercase tracking-wider text-gray-400 mb-3 flex items-center gap-2">
@@ -603,7 +606,6 @@ function BidCard({ bid, expanded, onToggle, onWithdraw, withdrawing, onStartServ
 
               <div className="bg-blue-50 border border-blue-200 rounded-xl p-4 space-y-3">
 
-                {/* Address row — always show something */}
                 <div className="flex items-start gap-3">
                   <Navigation size={15} className="text-blue-500 shrink-0 mt-0.5" />
                   <div>
@@ -620,7 +622,6 @@ function BidCard({ bid, expanded, onToggle, onWithdraw, withdrawing, onStartServ
                   </div>
                 </div>
 
-                {/* Coords + map link row */}
                 {providerCoords && (
                   <div className="flex items-center justify-between gap-3 flex-wrap">
                     <div className="flex gap-4 text-xs font-mono text-blue-600">
@@ -649,7 +650,6 @@ function BidCard({ bid, expanded, onToggle, onWithdraw, withdrawing, onStartServ
                   </div>
                 )}
 
-                {/* Mini Leaflet map showing the start pin */}
                 {providerCoords && (
                   <div className="rounded-lg overflow-hidden border border-blue-200" style={{ height: 180 }}>
                     <MapContainer
