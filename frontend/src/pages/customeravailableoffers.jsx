@@ -73,7 +73,7 @@ export function CustomerAvailableOffers() {
       setProviderProfile(res.data);
     } catch (err) {
       setProviderError(
-        err?.response?.data?.detail || "Failed to load provider profile."
+        err?.response?.data?.detail || "Failed to load provider profile.",
       );
     } finally {
       setProviderLoading(false);
@@ -106,7 +106,7 @@ export function CustomerAvailableOffers() {
           Loading offers...
         </div>
       </div>,
-      document.body
+      document.body,
     );
   }
 
@@ -115,8 +115,12 @@ export function CustomerAvailableOffers() {
     return createPortal(
       <div className="fixed inset-0 flex justify-center items-center bg-black/40 z-50">
         <div className="bg-white p-6 rounded-xl text-center">
-          <h2 className="text-lg font-bold text-red-500">No Request Selected</h2>
-          <p className="text-gray-600 mt-2">Cannot load bids because requestId is missing.</p>
+          <h2 className="text-lg font-bold text-red-500">
+            No Request Selected
+          </h2>
+          <p className="text-gray-600 mt-2">
+            Cannot load bids because requestId is missing.
+          </p>
           <button
             onClick={() => navigate("/customer-dashboard")}
             className="mt-4 bg-blue-500 text-white px-4 py-2 rounded-xl"
@@ -125,7 +129,7 @@ export function CustomerAvailableOffers() {
           </button>
         </div>
       </div>,
-      document.body
+      document.body,
     );
   }
 
@@ -135,7 +139,6 @@ export function CustomerAvailableOffers() {
       {/* ============ BIDS MODAL ============ */}
       <div className="fixed inset-0 flex justify-center items-start z-40 bg-black/40">
         <div className="relative mt-16 w-[700px] max-w-full rounded-2xl shadow-2xl bg-white p-6 mx-4">
-
           {/* HEADER */}
           <div className="flex justify-between items-center mb-4">
             <div>
@@ -226,7 +229,14 @@ export function CustomerAvailableOffers() {
                     View Profile
                   </button>
 
-                  <button className="p-2 border rounded-xl hover:bg-gray-100">
+                  <button
+                    onClick={() =>
+                      navigate("/customer-dashboard/messages", {
+                        state: { otherUser: bid.provider_email },
+                      })
+                    }
+                    className="p-2 border rounded-xl hover:bg-gray-100"
+                  >
                     <MessageCircle className="w-5 h-5" />
                   </button>
                 </div>
@@ -241,10 +251,11 @@ export function CustomerAvailableOffers() {
         createPortal(
           <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
             <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg overflow-hidden">
-
               {/* Modal Header */}
               <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100">
-                <h3 className="text-xl font-bold text-gray-900">Provider Profile</h3>
+                <h3 className="text-xl font-bold text-gray-900">
+                  Provider Profile
+                </h3>
                 <button
                   onClick={() => setShowProviderModal(false)}
                   className="w-8 h-8 flex items-center justify-center rounded-xl hover:bg-gray-100 transition"
@@ -262,13 +273,14 @@ export function CustomerAvailableOffers() {
 
               {/* Error */}
               {providerError && !providerLoading && (
-                <div className="p-8 text-center text-red-500">{providerError}</div>
+                <div className="p-8 text-center text-red-500">
+                  {providerError}
+                </div>
               )}
 
               {/* Profile Content */}
               {providerProfile && !providerLoading && (
                 <div className="overflow-y-auto max-h-[80vh]">
-
                   {/* Blue banner + avatar */}
                   <div className="bg-gradient-to-br from-blue-600 to-blue-400 px-6 pt-6 pb-10 text-white">
                     <div className="flex items-center gap-4">
@@ -377,10 +389,10 @@ export function CustomerAvailableOffers() {
               )}
             </div>
           </div>,
-          document.body
+          document.body,
         )}
     </>,
-    document.body
+    document.body,
   );
 }
 

@@ -373,6 +373,7 @@ export default function LoginPage() {
 
       // ✅ FIXED: Save user to localStorage so dashboard can read the name
       localStorage.setItem("user", JSON.stringify(data.user));
+      localStorage.setItem("email", email);
 
       alert("Login successful");
 
@@ -382,7 +383,6 @@ export default function LoginPage() {
       } else {
         navigate("/provider-dashboard");
       }
-
     } catch (err) {
       alert(err.message);
     }
@@ -393,7 +393,6 @@ export default function LoginPage() {
       <style>{styles}</style>
 
       <div className="login-root">
-
         {/* LEFT PANEL */}
         <div className="left-panel">
           <button className="back-btn" onClick={() => navigate("/")}>
@@ -432,16 +431,23 @@ export default function LoginPage() {
           </div>
 
           <div className="badge-row">
-            <div className="badge"><span className="badge-dot green" />✓ Verified Platform</div>
-            <div className="badge"><span className="badge-dot blue" />🔒 Secure Login</div>
-            <div className="badge"><span className="badge-dot purple" />👥 50K+ Users</div>
+            <div className="badge">
+              <span className="badge-dot green" />✓ Verified Platform
+            </div>
+            <div className="badge">
+              <span className="badge-dot blue" />
+              🔒 Secure Login
+            </div>
+            <div className="badge">
+              <span className="badge-dot purple" />
+              👥 50K+ Users
+            </div>
           </div>
         </div>
 
         {/* RIGHT PANEL */}
         <div className="right-panel">
           <div className="login-card">
-
             <div className="lock-icon">🔒</div>
             <h2 className="login-title">Login</h2>
             <p className="login-sub">Enter your credentials to continue</p>
@@ -466,7 +472,6 @@ export default function LoginPage() {
             </div>
 
             <form onSubmit={handleSubmit}>
-
               <label className="field-label">Email Address</label>
               <div className="input-wrap">
                 <span className="input-icon">✉️</span>
@@ -514,10 +519,8 @@ export default function LoginPage() {
                 Sign up
               </span>
             </p>
-
           </div>
         </div>
-
       </div>
     </>
   );
