@@ -552,15 +552,10 @@ def get_customer_profile(email: str):
 
 @app.put("/customer-profile/update/{email}")
 def update_customer_profile(email: str, data: dict):
-    """
-    Update customer personal info (fullName, phone, location).
-    Updates both user collection and customer_profile collection.
-    """
     user = db.user.find_one({"email": email})
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
 
-    # Update user collection
     db.user.update_one(
         {"email": email},
         {
@@ -572,7 +567,6 @@ def update_customer_profile(email: str, data: dict):
         }
     )
 
-    # Update customer_profile collection
     user_id = str(user["_id"])
     db.customer_profile.update_one(
         {"userId": user_id},
@@ -592,10 +586,6 @@ def update_customer_profile(email: str, data: dict):
 
 @app.put("/customer/change-password/{email}")
 def change_customer_password(email: str, data: dict):
-    """
-    Change customer password.
-    Requires: oldPassword, newPassword
-    """
     old_password = data.get("oldPassword")
     new_password = data.get("newPassword")
 
@@ -626,10 +616,6 @@ def change_customer_password(email: str, data: dict):
 
 @app.put("/customer/settings/{email}")
 def update_customer_settings(email: str, data: dict):
-    """
-    Update customer notification preferences.
-    Accepts: emailNotifications, smsNotifications, marketingCommunications
-    """
     user = db.user.find_one({"email": email})
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
@@ -661,11 +647,6 @@ def update_customer_settings(email: str, data: dict):
 
 @app.put("/customer/deactivate/{email}")
 def deactivate_customer(email: str):
-    """
-    Temporarily deactivate a customer account.
-    Sets accountStatus to 'Inactive' in customer_profile.
-    Also clears localStorage session on frontend.
-    """
     user = db.user.find_one({"email": email})
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
@@ -689,10 +670,6 @@ def deactivate_customer(email: str):
 
 @app.delete("/customer/delete/{email}")
 def delete_customer(email: str):
-    """
-    Permanently delete a customer account.
-    Removes from user, customer_profile, and requests collections.
-    """
     user = db.user.find_one({"email": email})
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
@@ -707,28 +684,21 @@ def delete_customer(email: str):
 
 # ================================================================
 # PUT /bids/{bid_id}/start
-# Called by provider when they click "Start My Service".
-# - Validates bid is accepted and belongs to this provider
-# - Stores provider GPS coords + readable address in the bid
-# - Sets service_started = True, status = "in_progress" on bid
-# - Mirrors those flags onto the request so the customer sees it
 # ================================================================
- 
+
 @app.put("/bids/{bid_id}/start")
 def start_service(bid_id: str, data: dict):
- 
+
     provider_email   = data.get("provider_email")
     latitude         = data.get("latitude")
     longitude        = data.get("longitude")
-    provider_address = data.get("provider_address", "")   # human-readable from Nominatim
- 
-    # -- Basic validation --
+    provider_address = data.get("provider_address", "")
+
     if not provider_email:
         raise HTTPException(status_code=400, detail="provider_email is required")
     if latitude is None or longitude is None:
         raise HTTPException(status_code=400, detail="latitude and longitude are required")
- 
-    # -- Fetch & validate the bid --
+
     bid = db.bids.find_one({"id": bid_id})
     if not bid:
         raise HTTPException(status_code=404, detail="Bid not found")
@@ -736,10 +706,9 @@ def start_service(bid_id: str, data: dict):
         raise HTTPException(status_code=403, detail="Not authorized")
     if bid["status"] != "accepted":
         raise HTTPException(status_code=400, detail="Only accepted bids can be started")
- 
+
     started_at = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
- 
-    # -- Update bid document --
+
     db.bids.update_one(
         {"id": bid_id},
         {
@@ -755,8 +724,7 @@ def start_service(bid_id: str, data: dict):
             }
         }
     )
- 
-    # -- Mirror onto the request so customer side can react --
+
     db.requests.update_one(
         {"id": bid["request_id"]},
         {
@@ -773,30 +741,26 @@ def start_service(bid_id: str, data: dict):
             }
         }
     )
- 
+
     return {
         "status":     "success",
         "message":    "Service started",
         "started_at": started_at
     }
- 
- 
+
+
 # ================================================================
 # PUT /requests/{request_id}/complete
-# Called by the customer to mark a job as done.
-# - Validates request belongs to the customer
-# - Sets status = "completed", task_completed = True on request
-# - Sets the accepted bid to "completed" as well
+# ✅ FIXED: Now increments provider's jobsCompleted and totalEarned
 # ================================================================
- 
+
 @app.put("/requests/{request_id}/complete")
 def mark_request_complete(request_id: str, data: dict):
- 
+
     customer_email = data.get("customer_email")
     if not customer_email:
         raise HTTPException(status_code=400, detail="customer_email is required")
- 
-    # -- Fetch & validate the request --
+
     request = db.requests.find_one({"id": request_id})
     if not request:
         raise HTTPException(status_code=404, detail="Request not found")
@@ -804,10 +768,10 @@ def mark_request_complete(request_id: str, data: dict):
         raise HTTPException(status_code=403, detail="Not authorized")
     if request.get("status") != "in_progress":
         raise HTTPException(status_code=400, detail="Only in-progress requests can be marked complete")
- 
+
     completed_at = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
- 
-    # -- Update request --
+
+    # Update request status
     db.requests.update_one(
         {"id": request_id},
         {
@@ -818,10 +782,20 @@ def mark_request_complete(request_id: str, data: dict):
             }
         }
     )
- 
-    # -- Update the accepted bid --
+
+    # Update the accepted bid and get bid details
     accepted_bid_id = request.get("accepted_bid_id")
+    bid_amount = 0
+    provider_email = request.get("provider_email") or request.get("provider")
+
     if accepted_bid_id:
+        bid = db.bids.find_one({"id": accepted_bid_id})
+        if bid:
+            bid_amount = bid.get("bid_amount", 0)
+            # Fallback: get provider email from bid if not on request
+            if not provider_email:
+                provider_email = bid.get("provider_email")
+
         db.bids.update_one(
             {"id": accepted_bid_id},
             {
@@ -831,12 +805,30 @@ def mark_request_complete(request_id: str, data: dict):
                 }
             }
         )
- 
+
+    # ✅ Update provider profile stats
+    if provider_email:
+        db.provider.update_one(
+            {"email": provider_email},
+            {
+                "$inc": {
+                    "jobsCompleted": 1,
+                    "totalEarned":   bid_amount
+                }
+            }
+        )
+
     return {
         "status":       "success",
         "message":      "Task marked as complete",
         "completed_at": completed_at
     }
+
+
+# ================================================================
+# PUT /requests/{request_id}/cancel
+# ================================================================
+
 @app.put("/requests/{request_id}/cancel")
 def cancel_request(request_id: str, data: dict):
 
@@ -851,7 +843,6 @@ def cancel_request(request_id: str, data: dict):
     if request["user_email"] != customer_email:
         raise HTTPException(status_code=403, detail="Not authorized")
 
-    # 🚫 Prevent cancelling completed requests
     if request.get("status") == "completed":
         raise HTTPException(status_code=400, detail="Cannot cancel completed request")
 
@@ -863,12 +854,11 @@ def cancel_request(request_id: str, data: dict):
             "$set": {
                 "status": "cancelled",
                 "cancelled_at": cancelled_at,
-                "service_started": False   # optional safety reset
+                "service_started": False
             }
         }
     )
 
-    # ❗ Also update bid so provider sees it
     accepted_bid_id = request.get("accepted_bid_id")
     if accepted_bid_id:
         db.bids.update_one(
