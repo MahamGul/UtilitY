@@ -6,19 +6,6 @@ import {
   LayoutDashboard, History, Wrench, LogOut
 } from "lucide-react";
 
-function Button({ children, variant = "default", onClick, className }) {
-  const base = "flex items-center justify-center gap-2 p-2 rounded transition font-semibold";
-  const variants = {
-    default: "bg-blue-500 text-white hover:bg-blue-600",
-    outline: "border border-gray-300 hover:bg-gray-100",
-  };
-  return (
-    <button onClick={onClick} className={`${base} ${variants[variant] || variants.default} ${className}`}>
-      {children}
-    </button>
-  );
-}
-
 function NavItem({ to, icon, label, badge, active }) {
   return (
     <Link
@@ -41,14 +28,15 @@ function NavItem({ to, icon, label, badge, active }) {
 export default function ProviderDashboard() {
   const [profile, setProfile] = useState(null);
   const [name, setName] = useState("");
+  const [activeJobs, setActiveJobs] = useState(0);
+  const [completedJobs, setCompletedJobs] = useState(0);
+  const [totalEarned, setTotalEarned] = useState(0);
+  const [rating, setRating] = useState(0);
 
   useEffect(() => {
-    // ✅ Read user inside useEffect to avoid null issues
     const user = JSON.parse(localStorage.getItem("user"));
-
     if (!user?.email) return;
 
-    // ✅ Set name immediately from localStorage so it shows right away
     const localName =
       user?.fullName ||
       user?.name ||
@@ -56,24 +44,74 @@ export default function ProviderDashboard() {
       "User";
     setName(localName);
 
-    // Then fetch profile to override with latest data
-    fetch(`http://127.0.0.1:8000/provider/profile/${user.email}`)
+    const email = user.email;
+
+    // Fetch provider profile
+    fetch(`http://127.0.0.1:8000/provider/profile/${email}`)
       .then(res => res.json())
       .then(data => {
         setProfile(data);
-        // ✅ Override name only if profile has a better value
-        if (data?.fullName) {
-          setName(data.fullName);
-        }
+        if (data?.fullName) setName(data.fullName);
+        if (data?.rating) setRating(data.rating);
       })
-      .catch(err => console.error("Fetch error:", err));
+      .catch(err => console.error("Profile fetch error:", err));
+
+    // Fetch bids to calculate real stats
+    fetch(`http://127.0.0.1:8000/bids/provider/${email}`)
+      .then(res => res.json())
+      .then(bids => {
+        // Active jobs = bids that are accepted or in_progress
+        const active = bids.filter(b =>
+          b.status === "accepted" || b.status === "in_progress"
+        ).length;
+
+        // Completed jobs = bids with status "completed"
+        const completed = bids.filter(b => b.status === "completed");
+
+        // Total earned = sum of bid_amount for completed bids
+        const earned = completed.reduce((sum, b) => sum + (b.bid_amount || 0), 0);
+
+        // Rating = average from completed bids that have a rating field (if you add it later)
+        // For now fall back to profile.rating
+        const ratedBids = completed.filter(b => b.rating && b.rating > 0);
+        if (ratedBids.length > 0) {
+          const avgRating = ratedBids.reduce((sum, b) => sum + b.rating, 0) / ratedBids.length;
+          setRating(Math.round(avgRating * 10) / 10);
+        }
+
+        setActiveJobs(active);
+        setCompletedJobs(completed.length);
+        setTotalEarned(earned);
+      })
+      .catch(err => console.error("Bids fetch error:", err));
+
   }, []);
 
   const stats = [
-    { icon: Clock,        label: "Active Jobs", value: 2,                              color: "bg-purple-100 text-purple-600" },
-    { icon: CheckCircle,  label: "Completed",   value: profile?.jobsCompleted || 0,    color: "bg-green-100 text-green-600"  },
-    { icon: Star,         label: "Rating",      value: profile?.rating || 0,           color: "bg-yellow-100 text-yellow-600"},
-    { icon: DollarSign,   label: "Earnings",    value: `Rs. ${profile?.totalEarned || 0}`, color: "bg-blue-100 text-blue-600"},
+    {
+      icon: Clock,
+      label: "Active Jobs",
+      value: activeJobs,
+      color: "bg-purple-100 text-purple-600"
+    },
+    {
+      icon: CheckCircle,
+      label: "Completed",
+      value: completedJobs,
+      color: "bg-green-100 text-green-600"
+    },
+    {
+      icon: Star,
+      label: "Rating",
+      value: rating > 0 ? rating : (profile?.rating || 0),
+      color: "bg-yellow-100 text-yellow-600"
+    },
+    {
+      icon: DollarSign,
+      label: "Earnings",
+      value: `Rs. ${totalEarned > 0 ? totalEarned : (profile?.totalEarned || 0)}`,
+      color: "bg-blue-100 text-blue-600"
+    },
   ];
 
   return (
@@ -115,7 +153,6 @@ export default function ProviderDashboard() {
         {/* HEADER */}
         <div className="flex justify-between items-center mb-8">
           <div>
-            {/* ✅ This will now always show the real name */}
             <h1 className="text-3xl font-bold">
               Welcome Back, {name || "User"}!
             </h1>
@@ -125,7 +162,9 @@ export default function ProviderDashboard() {
           <div className="text-right bg-white shadow p-4 rounded flex items-center gap-4">
             <div>
               <p className="text-sm text-gray-500">Total Earnings</p>
-              <p className="text-xl font-bold">Rs. {profile?.totalEarned || 0}</p>
+              <p className="text-xl font-bold">
+                Rs. {totalEarned > 0 ? totalEarned : (profile?.totalEarned || 0)}
+              </p>
             </div>
             <div className="w-10 h-10 bg-blue-300 rounded-full flex items-center justify-center font-bold text-white">
               {name ? name.charAt(0).toUpperCase() : "U"}
