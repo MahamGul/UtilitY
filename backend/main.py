@@ -812,7 +812,7 @@ def mark_request_complete(request_id: str, data: dict):
             {"email": provider_email},
             {
                 "$inc": {
-                    "jobsCompleted": 1,
+                    #"jobsCompleted": 1,
                     "totalEarned":   bid_amount
                 }
             }
@@ -876,3 +876,113 @@ def cancel_request(request_id: str, data: dict):
         "message": "Request cancelled",
         "cancelled_at": cancelled_at
     }
+# ================================================================
+# ----------------  FEEDBACK  ------------------------------------
+# ================================================================
+
+@app.post("/feedback")
+def submit_feedback(data: dict):
+
+    required_fields = ["request_id", "customer_email", "rating"]
+
+    for field in required_fields:
+        if field not in data or data[field] == "":
+            raise HTTPException(status_code=400, detail=f"{field} is required")
+
+    # ---------------- GET REQUEST ----------------
+    request = db.requests.find_one({"id": data["request_id"]})
+    if not request:
+        raise HTTPException(status_code=404, detail="Request not found")
+
+    # ---------------- VALIDATIONS ----------------
+    if request["user_email"] != data["customer_email"]:
+        raise HTTPException(status_code=403, detail="Not authorized")
+
+    if request.get("status") != "completed":
+        raise HTTPException(status_code=400, detail="Feedback allowed only after completion")
+
+    # Prevent duplicate feedback
+    existing = db.feedback.find_one({"request_id": data["request_id"]})
+    if existing:
+        raise HTTPException(status_code=400, detail="Feedback already submitted")
+
+    # ---------------- GET PROVIDER ----------------
+    provider_email = request.get("provider_email") or request.get("provider")
+    provider = db.provider.find_one({"email": provider_email})
+
+    if not provider:
+        raise HTTPException(status_code=404, detail="Provider not found")
+
+    # ---------------- CREATE FEEDBACK ----------------
+    feedback = {
+        "id": str(uuid.uuid4()),
+
+        "request_id": request["id"],
+        "bid_id": request.get("accepted_bid_id"),
+
+        "customer_id": request.get("customer_id"),
+        "customer_email": request.get("user_email"),
+        "customer_name": request.get("user_name"),
+
+        "provider_id": provider.get("userId"),
+        "provider_email": provider_email,
+        "provider_name": provider.get("fullName"),
+
+        "rating": int(data["rating"]),
+        "comment": data.get("comment", ""),
+
+        "category": request.get("category"),
+        "service_date": request.get("completed_at"),
+
+        "created_at": datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    }
+
+    db.feedback.insert_one(feedback)
+
+    # ---------------- UPDATE PROVIDER RATING ----------------
+    old_rating = provider.get("rating", 0)
+    jobs = provider.get("jobsCompleted", 0)
+
+    # ⚠️ IMPORTANT: avoid division error
+    if jobs == 0:
+        new_rating = feedback["rating"]
+        new_jobs = 1
+    else:
+        new_rating = ((old_rating * jobs) + feedback["rating"]) / (jobs + 1)
+        new_jobs = jobs + 1
+
+    db.provider.update_one(
+        {"email": provider_email},
+        {
+            "$set": {
+                "rating": new_rating,
+                "jobsCompleted": new_jobs
+            },
+            "$push": {
+                "reviews": {
+                    "rating": feedback["rating"],
+                    "comment": feedback["comment"],
+                    "customer_name": feedback["customer_name"]
+                }
+            }
+        }
+    )
+
+    return {
+        "status": "success",
+        "message": "Feedback submitted successfully"
+    }
+
+@app.get("/feedback/provider/{provider_email}")
+def get_provider_feedback(provider_email: str):
+
+    feedbacks = list(
+        db.feedback.find(
+            {"provider_email": provider_email},
+            {"_id": 0}
+        )
+    )
+
+    feedbacks.sort(key=lambda x: x.get("created_at", ""), reverse=True)
+
+    return feedbacks
