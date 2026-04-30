@@ -1064,3 +1064,46 @@ def get_conversations(email: str):
     reverse=True
 )
 
+@app.get("/provider/top")
+def get_top_providers(serviceType: str):
+    providers = list(db.provider.find({
+    "serviceType": serviceType }))
+
+    result = []
+
+    for p in providers:
+        # skip inactive/unavailable safely (instead of strict query)
+        if not p.get("isActive", True):
+            continue
+        if not p.get("isAvailable", True):
+            continue
+
+        rating = p.get("rating", 0)
+        jobs = p.get("jobsCompleted", 0)
+
+        # scoring formula
+        score = (rating * 0.7) + (jobs * 0.3)
+
+        # badge logic
+        if rating >= 4.5:
+            badge = "Top Rated"
+        elif jobs >= 10:
+            badge = "Experienced"
+        else:
+            badge = ""
+
+        # clean response object (IMPORTANT)
+        result.append({
+            "id": p.get("id"),
+            "fullName": p.get("fullName"),
+            "serviceType": p.get("serviceType"),
+            "rating": rating,
+            "jobsCompleted": jobs,
+            "score": score,
+            "badge": badge
+        })
+
+    # sort after building clean list
+    result.sort(key=lambda x: x["score"], reverse=True)
+
+    return result[:5]
