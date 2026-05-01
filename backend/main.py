@@ -1,9 +1,18 @@
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Header
 from fastapi.middleware.cors import CORSMiddleware
 from database import db
 import uuid
 from datetime import datetime, timezone
 from bson import ObjectId
+from typing import Optional
+from utils import (
+    hash_password,
+    verify_password,
+    get_object_id,
+    serialize_doc,
+    get_current_timestamp,
+    create_response
+)
 
 app = FastAPI()
 
@@ -126,14 +135,21 @@ def login(user: dict):
     if not db_user:
         raise HTTPException(status_code=401, detail="Invalid credentials")
 
-    if db_user["role"] != user["role"]:
+    # SAFE ROLE CHECK
+    db_role = (db_user.get("role") or "").strip().lower()
+    req_role = (user.get("role") or "").strip().lower()
+
+    # DEBUG (put BEFORE if check)
+    print("DB ROLE:", db_role)
+    print("REQUEST ROLE:", req_role)
+
+    if db_role != req_role:
         raise HTTPException(status_code=403, detail="Role mismatch")
 
     return {
         "status": "success",
         "user": db_user
     }
-
 # ================================================================
 # ---------------- CREATE REQUEST ----------------
 # ================================================================
@@ -1103,7 +1119,538 @@ def get_top_providers(serviceType: str):
             "badge": badge
         })
 
-    # sort after building clean list
+# sort after building clean list
     result.sort(key=lambda x: x["score"], reverse=True)
 
     return result[:5]
+
+
+# ================================================================
+# ----------------  ADMIN AUTHENTICATION  --------------------
+# ================================================================
+
+# In-memory session storage (for demo purposes)
+# In production, use proper JWT tokens or sessions
+admin_sessions = {}
+
+
+def verify_admin_session(authorization: str = Header(None)) -> dict:
+    """Verify admin session token."""
+    if not authorization:
+        raise HTTPException(status_code=401, detail="Authorization header required")
+    
+    # Simple token format: "Bearer <session_id>"
+    if not authorization.startswith("Bearer "):
+        raise HTTPException(status_code=401, detail="Invalid authorization format")
+    
+    session_id = authorization.replace("Bearer ", "")
+    
+    if session_id not in admin_sessions:
+        raise HTTPException(status_code=401, detail="Invalid or expired session")
+    
+    return admin_sessions[session_id]
+
+
+@app.post("/logout")
+def logout(authorization: str = Header(None)):
+    """Admin logout endpoint."""
+    if not authorization or not authorization.startswith("Bearer "):
+        return {"status": "success", "message": "Logged out"}
+    
+    session_id = authorization.replace("Bearer ", "")
+    
+    if session_id in admin_sessions:
+        del admin_sessions[session_id]
+    
+    return {"status": "success", "message": "Logged out successfully"}
+
+
+# ================================================================
+# ----------------  ADMIN DASHBOARD  --------------------
+# ================================================================
+
+@app.get("/admin/dashboard/stats")
+def get_dashboard_stats():
+    """Get dashboard statistics."""
+    # Total users
+    total_users = db.user.count_documents({})
+    
+    # Total providers
+    total_providers = db.provider.count_documents({})
+    
+    # Pending providers (isVerified = False)
+    pending_providers = db.provider.count_documents({"isVerified": False})
+    
+    # Total requests
+    total_requests = db.requests.count_documents({})
+    
+    # Active services (status = in_progress)
+    active_services = db.requests.count_documents({"status": "in_progress"})
+    
+    # Completed services
+    completed_services = db.requests.count_documents({"status": "completed"})
+    
+    # Total reports
+    total_reports = db.reports.count_documents({}) if "reports" in db.list_collection_names() else 0
+    
+    return {
+        "totalUsers": total_users,
+        "totalProviders": total_providers,
+        "pendingProviders": pending_providers,
+        "totalRequests": total_requests,
+        "activeServices": active_services,
+        "completedServices": completed_services,
+        "totalReports": total_reports
+    }
+
+
+@app.get("/admin/dashboard/recent-providers")
+def get_recent_providers():
+    """Get recent registered providers."""
+    providers = list(
+        db.provider.find(
+            {},
+            {
+                "_id": 0,
+                "id": 1,
+                "email": 1,
+                "fullName": 1,
+                "phone": 1,
+                "serviceType": 1,
+                "serviceArea": 1,
+                "experience": 1,
+                "rating": 1,
+                "isVerified": 1,
+                "createdAt": 1,
+                "memberSince": 1
+            }
+        ).sort("createdAt", -1).limit(10)
+    )
+    
+    # Convert ObjectId if present
+    result = []
+    for p in providers:
+        result.append(p)
+    
+    return result
+
+
+@app.get("/admin/dashboard/pending-actions")
+def get_pending_actions():
+    """Get pending actions for admin."""
+    # Pending providers
+    pending_providers = list(
+        db.provider.find(
+            {"isVerified": False},
+            {
+                "_id": 0,
+                "id": 1,
+                "email": 1,
+                "fullName": 1,
+                "serviceType": 1,
+                "createdAt": 1
+            }
+        ).limit(10)
+    )
+    
+    # Unresolved reports
+    if "reports" in db.list_collection_names():
+        unresolved_reports = list(
+            db.reports.find(
+                {"status": {"$ne": "resolved"}},
+                {
+                    "_id": 0,
+                    "report_id": 1,
+                    "reporter_email": 1,
+                    "reported_user": 1,
+                    "category": 1,
+                    "status": 1,
+                    "created_at": 1
+                }
+            ).limit(10)
+        )
+    else:
+        unresolved_reports = []
+    
+    # Pending disputes (using requests with disputes)
+    pending_disputes = list(
+        db.requests.find(
+            {"dispute_status": {"$exists": True, "$ne": "resolved"}},
+            {
+                "_id": 0,
+                "id": 1,
+                "user_email": 1,
+                "description": 1,
+                "dispute_status": 1,
+                "created_at": 1
+            }
+        ).limit(10)
+    )
+    
+    return {
+        "pendingProviders": list(pending_providers),
+        "unresolvedReports": list(unresolved_reports),
+        "pendingDisputes": list(pending_disputes)
+    }
+
+
+@app.get("/admin/dashboard/activity")
+def get_activity_feed():
+    """Get admin activity feed."""
+    if "admin_activity" in db.list_collection_names():
+        activities = list(
+            db.admin_activity.find(
+                {},
+                {"_id": 0}
+            ).sort("timestamp", -1).limit(20)
+        )
+    else:
+        activities = []
+    
+    return activities
+
+
+def log_admin_activity(action: str, details: str, admin_email: str):
+    """Log admin activity."""
+    activity = {
+        "id": str(uuid.uuid4()),
+        "action": action,
+        "details": details,
+        "admin_email": admin_email,
+        "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    }
+    
+    if "admin_activity" not in db.list_collection_names():
+        db.create_collection("admin_activity")
+    
+    db.admin_activity.insert_one(activity)
+
+
+# ================================================================
+# ----------------  PROVIDER VERIFICATION  -----------------
+# ================================================================
+
+@app.get("/admin/providers/pending")
+def get_pending_providers():
+    """Get all pending provider verification requests."""
+    providers = list(
+        db.provider.find(
+            {"isVerified": False},
+            {"_id": 0}
+        )
+    )
+    
+    return providers
+
+
+@app.get("/admin/providers")
+def get_all_providers():
+    """Get all providers."""
+    providers = list(
+        db.provider.find(
+            {},
+            {"_id": 0}
+        )
+    )
+    
+    return providers
+
+
+@app.get("/admin/providers/{providerId}")
+def get_provider_details(providerId: str):
+    """Get provider details by ID."""
+    provider = db.provider.find_one(
+        {"id": providerId},
+        {"_id": 0}
+    )
+    
+    if not provider:
+        raise HTTPException(status_code=404, detail="Provider not found")
+    
+    return provider
+
+
+@app.put("/admin/providers/{providerId}/approve")
+def approve_provider(providerId: str, data: dict = None):
+    """Approve a provider."""
+    provider = db.provider.find_one({"id": providerId})
+    
+    if not provider:
+        raise HTTPException(status_code=404, detail="Provider not found")
+    
+    # Update provider verification status
+    db.provider.update_one(
+        {"id": providerId},
+        {
+            "$set": {
+                "isVerified": True,
+                "verification_status": "approved",
+                "approved_at": datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+            }
+        }
+    )
+    
+    # Log activity
+    log_admin_activity(
+        action="provider_approved",
+        details=f"Approved provider: {provider.get('email')} ({provider.get('fullName')})",
+        admin_email=data.get("admin_email", "admin") if data else "admin"
+    )
+    
+    return {
+        "status": "success",
+        "message": "Provider approved successfully",
+        "providerId": providerId
+    }
+
+
+@app.put("/admin/providers/{providerId}/reject")
+def reject_provider(providerId: str, data: dict):
+    """Reject a provider."""
+    provider = db.provider.find_one({"id": providerId})
+    
+    if not provider:
+        raise HTTPException(status_code=404, detail="Provider not found")
+    
+    rejection_reason = data.get("rejection_reason", "") if data else ""
+    
+    # Update provider verification status
+    db.provider.update_one(
+        {"id": providerId},
+        {
+            "$set": {
+                "isVerified": False,
+                "verification_status": "rejected",
+                "rejected_at": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+                "rejection_reason": rejection_reason
+            }
+        }
+    )
+    
+    # Log activity
+    log_admin_activity(
+        action="provider_rejected",
+        details=f"Rejected provider: {provider.get('email')} - Reason: {rejection_reason}",
+        admin_email=data.get("admin_email", "admin") if data else "admin"
+    )
+    
+    return {
+        "status": "success",
+        "message": "Provider rejected",
+        "providerId": providerId,
+        "rejection_reason": rejection_reason
+    }
+
+
+# ================================================================
+# ----------------  CUSTOMER REPORTS  ----------------------
+# ================================================================
+
+@app.get("/admin/reports")
+def get_all_reports():
+    """Get all reports."""
+    if "reports" not in db.list_collection_names():
+        db.create_collection("reports")
+    
+    reports = list(
+        db.reports.find(
+            {},
+            {"_id": 0}
+        ).sort("created_at", -1)
+    )
+    
+    return reports
+
+
+@app.get("/admin/reports/stats")
+def get_reports_stats():
+    """Get reports statistics."""
+    if "reports" not in db.list_collection_names():
+        db.create_collection("reports")
+    
+    total_reports = db.reports.count_documents({})
+    pending_reports = db.reports.count_documents({"status": "pending"})
+    resolved_reports = db.reports.count_documents({"status": "resolved"})
+    escalated_reports = db.reports.count_documents({"status": "escalated"})
+    
+    return {
+        "totalReports": total_reports,
+        "pendingReports": pending_reports,
+        "resolvedReports": resolved_reports,
+        "escalatedReports": escalated_reports
+    }
+
+
+@app.get("/admin/reports/{reportId}")
+def get_report_details(reportId: str):
+    """Get report details by ID."""
+    if "reports" not in db.list_collection_names():
+        db.create_collection("reports")
+    
+    report = db.reports.find_one(
+        {"report_id": reportId},
+        {"_id": 0}
+    )
+    
+    if not report:
+        raise HTTPException(status_code=404, detail="Report not found")
+    
+    return report
+
+
+@app.put("/admin/reports/{reportId}/resolve")
+def resolve_report(reportId: str, data: dict):
+    """Resolve a report."""
+    if "reports" not in db.list_collection_names():
+        db.create_collection("reports")
+    
+    report = db.reports.find_one({"report_id": reportId})
+    
+    if not report:
+        raise HTTPException(status_code=404, detail="Report not found")
+    
+    resolution = data.get("resolution", "") if data else ""
+    
+    # Update report
+    db.reports.update_one(
+        {"report_id": reportId},
+        {
+            "$set": {
+                "status": "resolved",
+                "resolution": resolution,
+                "resolved_at": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+                "resolved_by": data.get("admin_email", "admin") if data else "admin"
+            }
+        }
+    )
+    
+    # Log activity
+    log_admin_activity(
+        action="report_resolved",
+        details=f"Resolved report {reportId}: {resolution}",
+        admin_email=data.get("admin_email", "admin") if data else "admin"
+    )
+    
+    return {
+        "status": "success",
+        "message": "Report resolved",
+        "reportId": reportId,
+        "resolution": resolution
+    }
+
+
+@app.put("/admin/reports/{reportId}/escalate")
+def escalate_report(reportId: str, data: dict):
+    """Escalate a report."""
+    if "reports" not in db.list_collection_names():
+        db.create_collection("reports")
+    
+    report = db.reports.find_one({"report_id": reportId})
+    
+    if not report:
+        raise HTTPException(status_code=404, detail="Report not found")
+    
+    escalation_details = data.get("escalation_details", "") if data else ""
+    
+    # Update report
+    db.reports.update_one(
+        {"report_id": reportId},
+        {
+            "$set": {
+                "status": "escalated",
+                "escalation_details": escalation_details,
+                "escalated_at": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+                "escalated_by": data.get("admin_email", "admin") if data else "admin"
+            }
+        }
+    )
+    
+    # Log activity
+    log_admin_activity(
+        action="report_escalated",
+        details=f"Escalated report {reportId}: {escalation_details}",
+        admin_email=data.get("admin_email", "admin") if data else "admin"
+    )
+    
+    return {
+        "status": "success",
+        "message": "Report escalated",
+        "reportId": reportId,
+        "escalation_details": escalation_details
+    }
+
+
+# ================================================================
+# ----------------  USER MANAGEMENT  ---------------------
+# ================================================================
+
+@app.get("/admin/users")
+def get_all_users():
+    """Get all users."""
+    users = list(
+        db.user.find(
+            {},
+            {"_id": 0, "password": 0}
+        )
+    )
+    
+    return users
+
+
+@app.get("/admin/users/stats")
+def get_user_stats():
+    """Get user statistics."""
+    total_users = db.user.count_documents({})
+    total_customers = db.user.count_documents({"role": "customer"})
+    total_providers = db.user.count_documents({"role": "provider"})
+    
+    # Active users (users with active profiles)
+    active_customers = db.customer_profile.count_documents({"accountStatus": "Active"}) if "customer_profile" in db.list_collection_names() else 0
+    active_providers = db.provider.count_documents({"isActive": True})
+    
+    # Deactivated users
+    if "customer_profile" in db.list_collection_names():
+        deactivated_customers = db.customer_profile.count_documents({"accountStatus": "Inactive"})
+    else:
+        deactivated_customers = 0
+    
+    deactivated_providers = db.provider.count_documents({"isActive": False})
+    
+    return {
+        "totalUsers": total_users,
+        "totalCustomers": total_customers,
+        "totalProviders": total_providers,
+        "activeUsers": active_customers + active_providers,
+        "deactivatedUsers": deactivated_customers + deactivated_providers,
+        "activeCustomers": active_customers,
+        "activeProviders": active_providers,
+        "deactivatedCustomers": deactivated_customers,
+        "deactivatedProviders": deactivated_providers
+    }
+
+
+# ================================================================
+# ----------------  SAMPLE ADMIN CREATION  --------------
+# ================================================================
+
+def create_sample_admin():
+    """Create sample admin user if not exists."""
+    admin_email = "admin@utility.com"
+    
+    existing_admin = db.user.find_one({"email": admin_email, "role": "admin"})
+    
+    if not existing_admin:
+        admin_user = {
+            "email": admin_email,
+            "password": "admin123",  # In production, hash this!
+            "fullName": "Admin",
+            "role": "admin",
+            "createdAt": datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        }
+        
+        db.user.insert_one(admin_user)
+        print("Sample admin created: admin@utility.com / admin123")
+
+
+# Create sample admin on startup
+create_sample_admin()
