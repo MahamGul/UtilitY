@@ -11,8 +11,8 @@ const api = axios.create({
 
 // Admin Authentication
 export const adminAuth = {
-  login: (email, password) => api.post('/admin/login', { email, password }),
-  logout: () => api.post('/admin/logout'),
+  login: (email, password) => api.post('/login', { email, password, role: 'admin' }),
+  logout: () => api.post('/logout'),
 };
 
 // Dashboard
