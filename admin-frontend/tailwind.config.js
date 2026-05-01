@@ -15,8 +15,8 @@ module.exports = {
         background: "hsl(var(--background))",
         foreground: "hsl(var(--foreground))",
         primary: {
-          DEFAULT: "hsl(var(--primary))",
-          foreground: "hsl(var(--primary-foreground))",
+          DEFAULT: '#3b82f6',
+          foreground: '#ffffff',
         },
         secondary: {
           DEFAULT: "hsl(var(--secondary))",
@@ -27,13 +27,14 @@ module.exports = {
           foreground: "hsl(var(--muted-foreground))",
         },
         accent: {
-          DEFAULT: "hsl(var(--accent))",
-          foreground: "hsl(var(--accent-foreground))",
+          DEFAULT: '#f3f4f6',
+          foreground: '#1f2937',
         },
         destructive: {
           DEFAULT: "hsl(var(--destructive))",
           foreground: "hsl(var(--destructive-foreground))",
         },
+        'muted-foreground': '#6b7280',
       },
       borderRadius: {
         lg: "var(--radius)",
