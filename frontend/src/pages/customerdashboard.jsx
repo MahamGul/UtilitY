@@ -1,6 +1,5 @@
 import { useState, useEffect } from "react";
 import { Clock, CheckCircle, Star, Loader } from "lucide-react";
-import CustomerChatbot from "./customerchatbot";
 export default function CustomerDashboard() {
 
   // ---------------- USER ----------------
@@ -310,8 +309,6 @@ export default function CustomerDashboard() {
         </div>
       )}
 
-      {/* CUSTOMER CHATBOT */}
-      <CustomerChatbot />
 
     </div>
   );

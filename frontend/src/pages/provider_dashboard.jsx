@@ -5,7 +5,6 @@ import {
   MessageSquare, ClipboardList,
   LayoutDashboard, History, Wrench, LogOut
 } from "lucide-react";
-import ProviderChatbot from "./providerchatbot";
 
 function NavItem({ to, icon, label, badge, active }) {
   return (
@@ -183,9 +182,7 @@ export default function ProviderDashboard() {
 
       </main>
 
-      {/* PROVIDER CHATBOT */}
-      <ProviderChatbot />
-
+  
     </div>
   );
 }

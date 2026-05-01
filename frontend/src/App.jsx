@@ -1,12 +1,12 @@
-import { BrowserRouter as Router, Routes, Route, Navigate } from "react-router-dom";
+import { BrowserRouter as Router, Routes, Route, Navigate, useLocation } from "react-router-dom";
 
 // Public pages
 import HomePage from "./HomePage";
-import LoginPage from "./pages/loginpage";   // ✅ fixed case
-import SignupPage from "./pages/SignUp";     // ✅ fixed path
+import LoginPage from "./pages/loginpage";
+import SignupPage from "./pages/SignUp";
 
 // Customer pages
-import CustomerLayout from "./pages/customerlayout";   // ✅ consistent casing
+import CustomerLayout from "./pages/customerlayout";
 import CustomerDashboard from "./pages/customerdashboard";
 import { CustomerProfilePage } from "./pages/customer-profile";
 import { ActiveRequestsPage } from "./pages/myrequest";
@@ -22,9 +22,40 @@ import { BidsHistoryPage } from "./pages/bids_history";
 import { MyBidsPage } from "./pages/my_bids";
 import ProviderMessages from "./pages/provider_messages";
 
+// Chatbots
+import CustomerChatbot from "./pages/customerchatbot";
+import ProviderChatbot from "./pages/providerchatbot";
+
+
+// ---------------- CHATBOT CONTROLLER ----------------
+function ChatbotController() {
+  const location = useLocation();
+
+  const path = location.pathname;
+
+  // Show customer chatbot
+  const isCustomerPage =
+    path.startsWith("/customer") ||
+    path === "/customer-dashboard";
+
+  // Show provider chatbot
+  const isProviderPage =
+    path.startsWith("/provider") ||  path.includes("bids");
+
+  return (
+    <>
+      {isCustomerPage && <CustomerChatbot />}
+      {isProviderPage && <ProviderChatbot />}
+    </>
+  );
+}
+
+
+// ---------------- MAIN APP ----------------
 export default function App() {
   return (
     <Router>
+
       <Routes>
 
         {/* Public routes */}
@@ -32,7 +63,7 @@ export default function App() {
         <Route path="/login" element={<LoginPage />} />
         <Route path="/signup" element={<SignupPage />} />
 
-        {/* Customer area (Nested Routes) */}
+        {/* Customer area */}
         <Route path="/customer-dashboard" element={<CustomerLayout />}>
           <Route index element={<CustomerDashboard />} />
           <Route path="profile" element={<CustomerProfilePage />} />
@@ -42,7 +73,7 @@ export default function App() {
           <Route path="messages" element={<CustomerMessages />} />
         </Route>
 
-        {/* Customer offers page */}
+        {/* Customer offers */}
         <Route
           path="/customer-available-offers"
           element={<CustomerAvailableOffers />}
@@ -59,6 +90,10 @@ export default function App() {
         <Route path="*" element={<Navigate to="/" />} />
 
       </Routes>
+
+      {/* ✅ GLOBAL CHATBOT CONTROL */}
+      <ChatbotController />
+
     </Router>
   );
 }
