@@ -94,12 +94,12 @@ export default function ServiceProviderVerification() {
       const mappedProviders = providersData.map(p => ({
         id: p.id || p.providerId || 0,
         name: p.fullName || p.name || p.email || 'Unknown',
-        title: p.serviceType || 'N/A',
-        service: p.serviceType || 'N/A',
+        title: p.serviceType || 'Not specified',
+        service: p.serviceType || 'Not specified',
         phone: p.phone || '',
-        location: p.serviceArea || 'N/A',
+        location: p.serviceArea || 'Not specified',
         experience: p.experience && p.experience > 0 ? `${p.experience} years` : (p.experience || 'New'),
-        applied: p.createdAt || p.memberSince || 'N/A',
+        applied: p.createdAt || p.memberSince || 'Recently',
         status: p.isVerified === true ? 'Approved' : 'Pending',
         avatar: (p.fullName || p.email || 'U').charAt(0).toUpperCase()
       }));
@@ -262,9 +262,6 @@ const pendingCount = allProviders.filter(p => p.status === 'Pending').length;
               </div>
 
               <div className="flex gap-3">
-                <button className="flex-1 bg-blue-500 hover:bg-blue-600 text-white font-semibold py-2 px-4 rounded-lg transition">
-                  👁️ View Details
-                </button>
                 <button onClick={() => handleApprove(provider.id)} className="flex-1 bg-green-500 hover:bg-green-600 text-white font-semibold py-2 px-4 rounded-lg transition">
                   ✅ Approve
                 </button>
