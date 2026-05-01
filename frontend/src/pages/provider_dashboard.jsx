@@ -2,9 +2,10 @@ import { Link } from "react-router-dom";
 import { useEffect, useState } from "react";
 import {
   Clock, CheckCircle, Star, DollarSign, User,
-  TrendingUp, MessageSquare, ClipboardList,
+  MessageSquare, ClipboardList,
   LayoutDashboard, History, Wrench, LogOut
 } from "lucide-react";
+import ProviderChatbot from "./providerchatbot";
 
 function NavItem({ to, icon, label, badge, active }) {
   return (
@@ -60,19 +61,13 @@ export default function ProviderDashboard() {
     fetch(`http://127.0.0.1:8000/bids/provider/${email}`)
       .then(res => res.json())
       .then(bids => {
-        // Active jobs = bids that are accepted or in_progress
         const active = bids.filter(b =>
           b.status === "accepted" || b.status === "in_progress"
         ).length;
 
-        // Completed jobs = bids with status "completed"
         const completed = bids.filter(b => b.status === "completed");
-
-        // Total earned = sum of bid_amount for completed bids
         const earned = completed.reduce((sum, b) => sum + (b.bid_amount || 0), 0);
 
-        // Rating = average from completed bids that have a rating field (if you add it later)
-        // For now fall back to profile.rating
         const ratedBids = completed.filter(b => b.rating && b.rating > 0);
         if (ratedBids.length > 0) {
           const avgRating = ratedBids.reduce((sum, b) => sum + b.rating, 0) / ratedBids.length;
@@ -129,8 +124,8 @@ export default function ProviderDashboard() {
         </div>
 
         <nav className="flex-1 p-4 space-y-2">
-          <NavItem to="/provider-dashboard" icon={<LayoutDashboard />} label="Home" active />
-          <NavItem to="/provider-messages"  icon={<MessageSquare />}   label="Messages" badge="5" />
+          <NavItem to="/provider-dashboard" icon={<LayoutDashboard />} label="Home"            active />
+          <NavItem to="/provider-messages"  icon={<MessageSquare />}   label="Messages"        badge="5" />
           <NavItem to="/bids-history"       icon={<History />}         label="Bids History" />
           <NavItem to="/my-bids"            icon={<ClipboardList />}   label="Available Bids" />
           <NavItem to="/provider-profile"   icon={<User />}            label="Profile" />
@@ -158,7 +153,6 @@ export default function ProviderDashboard() {
             </h1>
             <p className="text-gray-500">Manage your jobs and grow your business</p>
           </div>
-
           <div className="text-right bg-white shadow p-4 rounded flex items-center gap-4">
             <div>
               <p className="text-sm text-gray-500">Total Earnings</p>
@@ -188,6 +182,10 @@ export default function ProviderDashboard() {
         </div>
 
       </main>
+
+      {/* PROVIDER CHATBOT */}
+      <ProviderChatbot />
+
     </div>
   );
 }
