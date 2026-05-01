@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Eye, EyeOff, Shield, AlertCircle } from 'lucide-react';
 import { adminAuth } from '../services/api';
+import { useNavigate } from 'react-router-dom';
 
 export default function AdminLogin() {
   const [email, setEmail] = useState('');
@@ -10,6 +11,8 @@ export default function AdminLogin() {
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
 
+  const navigate = useNavigate();
+
   const handleLogin = async (e) => {
     e.preventDefault();
     setLoading(true);
@@ -18,14 +21,31 @@ export default function AdminLogin() {
 
     try {
       const response = await adminAuth.login(email, password);
-      setSuccess('Login successful! Redirecting...');
-      // Store token and redirect to dashboard
-      localStorage.setItem('adminToken', response.data.token);
-      setTimeout(() => {
-        window.location.href = '/dashboard';
-      }, 1500);
+
+      console.log("LOGIN RESPONSE:", response.data);
+
+      if (response.data.status === "success") {
+        setSuccess('Login successful! Redirecting...');
+
+        // IMPORTANT: store user (NOT token)
+        localStorage.setItem(
+          'adminUser',
+          JSON.stringify(response.data.user)
+        );
+
+setTimeout(() => {
+          navigate('/admin-dashboard'); // FIXED: Correct route from App.jsx
+        }, 1200);
+
+      } else {
+        setError('Invalid credentials or not authorized as admin');
+      }
+
     } catch (err) {
-      setError(err.response?.data?.detail || 'Login failed. Please try again.');
+      setError(
+        err.response?.data?.detail ||
+        'Login failed. Please try again.'
+      );
     } finally {
       setLoading(false);
     }
@@ -34,6 +54,7 @@ export default function AdminLogin() {
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-300 via-blue-200 to-cyan-200 flex items-center justify-center p-4">
       <div className="w-full max-w-md">
+
         {/* Header */}
         <div className="text-center mb-8">
           <div className="flex justify-center mb-4">
@@ -42,12 +63,15 @@ export default function AdminLogin() {
             </div>
           </div>
           <h1 className="text-3xl font-bold text-white mb-2">Admin Portal</h1>
-          <p className="text-white text-opacity-90">Utility Platform Administration</p>
+          <p className="text-white text-opacity-90">
+            Utility Platform Administration
+          </p>
         </div>
 
         {/* Login Card */}
         <div className="bg-white rounded-xl shadow-lg p-8">
-          {/* Logo and Title */}
+
+          {/* Logo */}
           <div className="text-center mb-6">
             <div className="flex justify-center mb-3">
               <div className="w-10 h-10 bg-blue-500 rounded-full flex items-center justify-center">
@@ -56,10 +80,9 @@ export default function AdminLogin() {
             </div>
             <h2 className="text-2xl font-bold text-gray-800">Utility</h2>
             <p className="text-gray-600 text-sm">Administrator Access</p>
-            <p className="text-gray-500 text-sm mt-2">Enter your admin credentials to continue</p>
           </div>
 
-          {/* Error Message */}
+          {/* Error */}
           {error && (
             <div className="mb-4 p-4 bg-red-50 border border-red-200 rounded-lg flex gap-3">
               <AlertCircle size={20} className="text-red-600 flex-shrink-0" />
@@ -67,7 +90,7 @@ export default function AdminLogin() {
             </div>
           )}
 
-          {/* Success Message */}
+          {/* Success */}
           {success && (
             <div className="mb-4 p-4 bg-green-50 border border-green-200 rounded-lg">
               <p className="text-green-700 text-sm">{success}</p>
@@ -76,9 +99,12 @@ export default function AdminLogin() {
 
           {/* Form */}
           <form onSubmit={handleLogin} className="space-y-5">
-            {/* Email Input */}
+
+            {/* Email */}
             <div>
-              <label className="block text-gray-700 font-medium mb-2">Admin Email</label>
+              <label className="block text-gray-700 font-medium mb-2">
+                Admin Email
+              </label>
               <div className="relative">
                 <span className="absolute left-3 top-3 text-gray-400">✉️</span>
                 <input
@@ -92,9 +118,11 @@ export default function AdminLogin() {
               </div>
             </div>
 
-            {/* Password Input */}
+            {/* Password */}
             <div>
-              <label className="block text-gray-700 font-medium mb-2">Password</label>
+              <label className="block text-gray-700 font-medium mb-2">
+                Password
+              </label>
               <div className="relative">
                 <span className="absolute left-3 top-3 text-gray-400">🔒</span>
                 <input
@@ -115,29 +143,37 @@ export default function AdminLogin() {
               </div>
             </div>
 
-            {/* Login Button */}
+            {/* Button */}
             <button
               type="submit"
               disabled={loading}
               className="w-full bg-blue-500 hover:bg-blue-600 disabled:bg-blue-300 text-white font-semibold py-3 rounded-lg transition duration-200 flex items-center justify-center gap-2"
             >
-              <span>🔐</span>
-              {loading ? 'Logging in...' : 'Login as Admin'}
+              🔐 {loading ? 'Logging in...' : 'Login as Admin'}
             </button>
+
           </form>
 
-          {/* Demo Credentials */}
+          {/* Demo */}
           <div className="mt-6 p-4 bg-red-50 border border-red-200 rounded-lg">
-            <p className="text-red-800 font-semibold text-sm mb-2">Demo Credentials:</p>
-            <p className="text-blue-600 text-sm">Email: admin@utility.com</p>
-            <p className="text-blue-600 text-sm">Password: admin123</p>
+            <p className="text-red-800 font-semibold text-sm mb-2">
+              Demo Credentials:
+            </p>
+            <p className="text-blue-600 text-sm">
+              Email: admin@utility.com
+            </p>
+            <p className="text-blue-600 text-sm">
+              Password: admin123
+            </p>
           </div>
+
         </div>
 
         {/* Footer */}
         <div className="text-center mt-6 text-white text-sm">
-          🔒 This is a secure admin area. All actions are logged.
+          🔒 Secure Admin System
         </div>
+
       </div>
     </div>
   );
