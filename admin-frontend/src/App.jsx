@@ -11,9 +11,9 @@ function App() {
       <Routes>
         <Route path="/" element={<Navigate to="/login" />} />
         <Route path="/login" element={<AdminLogin />} />
-        <Route path="/dashboard" element={<AdminDashboard />} />
-        <Route path="/providers" element={<ServiceProviderVerification />} />
-        <Route path="/reports" element={<CustomerReports />} />
+        <Route path="/admin-dashboard" element={<AdminDashboard />} />
+        <Route path="/admin-verification" element={<ServiceProviderVerification />} />
+        <Route path="/admin-reports" element={<CustomerReports />} />
       </Routes>
     </Router>
   );
