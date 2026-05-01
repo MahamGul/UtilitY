@@ -143,7 +143,7 @@ export default function AdminDashboard() {
   const fmt = (n) => (n != null ? Number(n).toLocaleString() : '0');
 
   const fmtDate = (d) => {
-    if (!d) return 'N/A';
+    if (!d) return '-';
     try {
       const date = new Date(d);
       return isNaN(date) ? d : date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
@@ -197,8 +197,8 @@ export default function AdminDashboard() {
         setProvidersList(rawP.map(p => ({
           id:         p.id || p.providerId || 0,
           name:       p.fullName || p.name || p.email || 'Unknown',
-          service:    p.serviceType || p.service || 'N/A',
-          location:   p.serviceArea || p.location || 'N/A',
+          service:    p.serviceType || p.service || 'Not specified',
+          location:   p.serviceArea || p.location || 'Not specified',
           experience: p.experience && p.experience > 0 ? `${p.experience} years` : (p.experience || 'New'),
           applied:    fmtDate(p.createdAt || p.memberSince || p.applied),
           status:     p.isVerified === true ? 'Approved' : 'Pending',
@@ -467,7 +467,7 @@ export default function AdminDashboard() {
                 <table className="w-full">
                   <thead className="bg-gray-50 border-b border-gray-200">
                     <tr>
-                      {['Provider Name', 'Service Type', 'Location', 'Experience', 'Application Date', 'Status', 'Actions'].map(h => (
+                      {['Provider Name', 'Service Type', 'Location', 'Experience', 'Application Date', 'Status'].map(h => (
                         <th key={h} className="text-left px-6 py-4 text-sm font-semibold text-gray-700">{h}</th>
                       ))}
                     </tr>
@@ -491,18 +491,15 @@ export default function AdminDashboard() {
                             {p.service}
                           </span>
                         </td>
-                        <td className="px-6 py-4 text-sm text-gray-700">{p.location}</td>
+<td className="px-6 py-4 text-sm text-gray-700">{p.location === 'N/A' ? 'Not specified' : p.location}</td>
                         <td className="px-6 py-4 text-sm font-semibold text-gray-900">{p.experience}</td>
                         <td className="px-6 py-4 text-sm text-gray-700">{p.applied}</td>
                         <td className="px-6 py-4"><StatusBadge status={p.status} /></td>
-                        <td className="px-6 py-4">
-                          <span className="text-sm text-gray-400">—</span>
-                        </td>
                       </tr>
                     ))}
                     {providersList.length === 0 && (
                       <tr>
-                        <td colSpan={7} className="px-6 py-12 text-center text-gray-400">No providers found</td>
+                        <td colSpan={6} className="px-6 py-12 text-center text-gray-400">No providers found</td>
                       </tr>
                     )}
                   </tbody>
