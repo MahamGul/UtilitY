@@ -1,6 +1,82 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { Loader, AlertCircle } from 'lucide-react';
+import { Link, useNavigate } from 'react-router-dom';
+import { Loader, AlertCircle, Shield, CheckCircle, BarChart3, LogOut } from 'lucide-react';
 import { providerVerification } from '../services/api';
+
+// ─── Sidebar ──────────────────────────────────────────────────────────────────
+function Sidebar({ pendingProviders = 0, pendingReports = 0 }) {
+  const navigate = useNavigate();
+
+  const handleLogout = () => {
+    localStorage.removeItem('adminUser');
+    navigate('/login');
+  };
+
+  return (
+    <aside className="w-64 bg-white border-r border-gray-200 flex flex-col shadow-sm shrink-0 min-h-screen">
+      {/* Logo */}
+      <div className="p-6 border-b border-gray-200">
+        <div className="flex items-center gap-3">
+          <div className="w-10 h-10 bg-blue-500 rounded-xl flex items-center justify-center">
+            <Shield className="w-6 h-6 text-white" />
+          </div>
+          <div>
+            <span className="text-xl font-bold text-gray-900 block">UtilitY</span>
+            <span className="text-xs text-gray-500">Admin Portal</span>
+          </div>
+        </div>
+      </div>
+
+      {/* Navigation */}
+      <nav className="flex-1 p-4 space-y-1">
+        <Link
+          to="/admin-dashboard"
+          className="flex items-center gap-3 px-4 py-3 rounded-xl text-gray-500 hover:bg-gray-50 hover:text-gray-900 font-medium transition-colors"
+        >
+          <BarChart3 className="w-5 h-5" />
+          Dashboard
+        </Link>
+
+        <Link
+          to="/admin-verification"
+          className="flex items-center gap-3 px-4 py-3 rounded-xl bg-blue-50 text-gray-900 font-medium transition-colors"
+        >
+          <CheckCircle className="w-5 h-5 text-blue-500" />
+          Provider Verification
+          {pendingProviders > 0 && (
+            <span className="ml-auto bg-yellow-500 text-white text-xs font-semibold px-2 py-0.5 rounded-full">
+              {pendingProviders}
+            </span>
+          )}
+        </Link>
+
+        <Link
+          to="/admin-reports"
+          className="flex items-center gap-3 px-4 py-3 rounded-xl text-gray-500 hover:bg-gray-50 hover:text-gray-900 font-medium transition-colors"
+        >
+          <AlertCircle className="w-5 h-5" />
+          Customer Reports
+          {pendingReports > 0 && (
+            <span className="ml-auto bg-red-500 text-white text-xs font-semibold px-2 py-0.5 rounded-full">
+              {pendingReports}
+            </span>
+          )}
+        </Link>
+      </nav>
+
+      {/* Logout */}
+      <div className="p-4 border-t border-gray-200">
+        <button
+          onClick={handleLogout}
+          className="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-red-600 hover:bg-red-50 font-medium transition-colors"
+        >
+          <LogOut className="w-5 h-5" />
+          Logout
+        </button>
+      </div>
+    </aside>
+  );
+}
 
 export default function ServiceProviderVerification() {
   const [filterStatus, setFilterStatus] = useState('All');
@@ -12,7 +88,22 @@ export default function ServiceProviderVerification() {
     try {
       setLoading(true);
       const response = await providerVerification.getAllProviders();
-      setAllProviders(response.data.providers || getDefaultProviders());
+      // Backend returns array directly, not {providers: [...]}
+      const providersData = Array.isArray(response.data) ? response.data : (response.data?.providers || getDefaultProviders());
+      // Map backend data to frontend format
+      const mappedProviders = providersData.map(p => ({
+        id: p.id || p.providerId || 0,
+        name: p.fullName || p.name || p.email || 'Unknown',
+        title: p.serviceType || 'N/A',
+        service: p.serviceType || 'N/A',
+        phone: p.phone || '',
+        location: p.serviceArea || 'N/A',
+        experience: p.experience && p.experience > 0 ? `${p.experience} years` : (p.experience || 'New'),
+        applied: p.createdAt || p.memberSince || 'N/A',
+        status: p.isVerified === true ? 'Approved' : 'Pending',
+        avatar: (p.fullName || p.email || 'U').charAt(0).toUpperCase()
+      }));
+      setAllProviders(mappedProviders);
     } catch (err) {
       setError(err.response?.data?.detail || 'Failed to load providers');
       console.error('Fetch error:', err);
@@ -27,66 +118,12 @@ export default function ServiceProviderVerification() {
   }, [fetchProviders]);
 
   const getDefaultProviders = () => [
-    {
-      id: 1,
-      name: 'Ali Roza',
-      title: 'Professional plumber with 5 years of experience in residential and commercial plumbing',
-      service: 'Plumbing',
-      phone: '+92 321 0234567',
-      location: 'Gulberg, Lahore',
-      experience: '5 years',
-      applied: 'Dec 28, 2024',
-      status: 'Pending',
-      avatar: 'A'
-    },
-    {
-      id: 2,
-      name: 'Kamran Sheikh',
-      title: 'Experienced electrician specializing in home and office electrical installations',
-      service: 'Electrical',
-      phone: '+92 300 9876543',
-      location: 'DHA Phase 5, Lahore',
-      experience: '5 years',
-      applied: 'Dec 28, 2024',
-      status: 'Pending',
-      avatar: 'K'
-    },
-    {
-      id: 3,
-      name: 'Fahad Ahmed',
-      title: 'Skilled carpenter with expertise in custom furniture and woodwork',
-      service: 'Carpentry',
-      phone: '+92 333 0556444',
-      location: 'Model Town, Lahore',
-      experience: '7 years',
-      applied: 'Dec 27, 2024',
-      status: 'Pending',
-      avatar: 'F'
-    },
-    {
-      id: 4,
-      name: 'Jawad Ali',
-      title: 'Professional AC technician with experience in all major brands',
-      service: 'AC Repair',
-      phone: '+92 345 7778888',
-      location: 'Johar Town, Lahore',
-      experience: '4 years',
-      applied: 'Dec 27, 2024',
-      status: 'Pending',
-      avatar: 'J'
-    },
-    {
-      id: 5,
-      name: 'Rizwan Khan',
-      title: 'Experienced painter with expertise in interior and exterior painting',
-      service: 'Painting',
-      phone: '+92 300 223333',
-      location: 'Bahria Town, Lahore',
-      experience: '6 years',
-      applied: 'Dec 26, 2024',
-      status: 'Pending',
-      avatar: 'R'
-    }
+    { id: 1, name: 'Ali Raza',      service: 'Plumbing',   location: 'Gulberg, Lahore',      experience: '5 years', applied: 'Dec 28, 2024', status: 'Pending', phone: '+92 321 0234567', title: 'Professional plumber with 5 years of experience' },
+    { id: 2, name: 'Kamran Sheikh', service: 'Electrical', location: 'DHA Phase 5, Lahore',  experience: '3 years', applied: 'Dec 28, 2024', status: 'Pending', phone: '+92 300 9876543', title: 'Experienced electrician specializing in home installations' },
+    { id: 3, name: 'Fahad Ahmed',   service: 'Carpentry',  location: 'Model Town, Lahore',   experience: '7 years', applied: 'Dec 27, 2024', status: 'Pending', phone: '+92 333 0556444', title: 'Skilled carpenter with expertise in custom furniture' },
+    { id: 4, name: 'Asim Khan',     service: 'Plumbing',   location: 'Bahria Town, Lahore',  experience: '4 years', applied: 'Dec 27, 2024', status: 'Approved', phone: '+92 345 111222', title: 'Professional plumber with 4 years of experience' },
+    { id: 5, name: 'Tariq Mahmood', service: 'AC Repair',  location: 'Johar Town, Lahore',   experience: '6 years', applied: 'Dec 26, 2024', status: 'Approved', phone: '+92 300 444555', title: 'AC technician with expertise in all major brands' },
+    { id: 6, name: 'Naveed Malik',  service: 'Electrical', location: 'Cantt, Lahore',        experience: '2 years', applied: 'Dec 26, 2024', status: 'Rejected', phone: '+92 333 666777', title: 'Electrician with basic residential experience' },
   ];
 
   const stats = [
@@ -117,6 +154,8 @@ export default function ServiceProviderVerification() {
     }
   };
 
+const pendingCount = allProviders.filter(p => p.status === 'Pending').length;
+
   if (loading) {
     return (
       <div className="min-h-screen bg-gray-100 flex items-center justify-center">
@@ -129,10 +168,11 @@ export default function ServiceProviderVerification() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-100">
-      <div className="bg-white border-b border-gray-200">
-        <div className="max-w-7xl mx-auto px-6 py-6">
-          <div className="flex justify-between items-center">
+    <div className="min-h-screen bg-gray-100 flex">
+      <Sidebar pendingProviders={pendingCount} pendingReports={0} />
+      <main className="flex-1 overflow-y-auto">
+        <header className="bg-white border-b border-gray-200 px-8 py-6">
+<div className="flex justify-between items-center">
             <div>
               <h1 className="text-3xl font-bold text-gray-900">Service Provider Verification</h1>
               <p className="text-gray-600">Review and approve provider applications</p>
@@ -142,17 +182,16 @@ export default function ServiceProviderVerification() {
               <p className="text-3xl font-bold text-orange-500">{stats[0].value}</p>
             </div>
           </div>
-        </div>
-      </div>
+        </header>
 
-      {error && (
-        <div className="max-w-7xl mx-auto px-6 py-4 bg-red-50 border border-red-200 rounded-lg my-4 flex gap-3">
-          <AlertCircle className="text-red-600 flex-shrink-0" />
-          <p className="text-red-800">{error}</p>
-        </div>
-      )}
+        {error && (
+          <div className="max-w-7xl mx-auto px-6 py-4 bg-red-50 border border-red-200 rounded-lg my-4 flex gap-3">
+            <AlertCircle className="text-red-600 flex-shrink-0" />
+            <p className="text-red-800">{error}</p>
+          </div>
+        )}
 
-      <div className="max-w-7xl mx-auto p-6">
+        <div className="max-w-7xl mx-auto p-6">
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
           {stats.map((stat, idx) => (
             <div key={idx} className={`${stat.color} border border-gray-200 rounded-lg p-6`}>
@@ -197,22 +236,22 @@ export default function ServiceProviderVerification() {
                 </span>
               </div>
 
-              <div className="bg-gray-50 rounded-lg p-4 mb-4">
+<div className="bg-gray-50 rounded-lg p-4 mb-4">
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                   <div>
                     <p className="text-gray-600 text-xs font-medium mb-1">Service Type</p>
                     <p className="font-semibold text-gray-900">{provider.service}</p>
                   </div>
                   <div>
-                    <p className="text-gray-600 text-xs font-medium mb-1">📞 Phone</p>
+                    <p className="text-gray-600 text-xs font-medium mb-1">Phone</p>
                     <p className="font-semibold text-gray-900 text-sm">{provider.phone}</p>
                   </div>
                   <div>
-                    <p className="text-gray-600 text-xs font-medium mb-1">📍 Location</p>
+                    <p className="text-gray-600 text-xs font-medium mb-1">Location</p>
                     <p className="font-semibold text-gray-900">{provider.location}</p>
                   </div>
                   <div>
-                    <p className="text-gray-600 text-xs font-medium mb-1">⏰ Experience</p>
+                    <p className="text-gray-600 text-xs font-medium mb-1">Experience</p>
                     <p className="font-semibold text-gray-900">{provider.experience}</p>
                   </div>
                 </div>
@@ -237,12 +276,13 @@ export default function ServiceProviderVerification() {
           ))}
         </div>
 
-        {filteredProviders.length === 0 && (
+{filteredProviders.length === 0 && (
           <div className="bg-white rounded-lg p-12 text-center">
             <p className="text-gray-600 text-lg">No {filterStatus.toLowerCase()} providers to display</p>
           </div>
         )}
       </div>
+      </main>
     </div>
   );
 }
