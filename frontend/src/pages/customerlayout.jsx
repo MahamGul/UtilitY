@@ -14,6 +14,7 @@ export default function CustomerLayout() {
   const navigate = useNavigate();
 
   const handleLogout = () => {
+    localStorage.clear();
     navigate("/login");
   };
 
