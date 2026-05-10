@@ -4,10 +4,10 @@ import {
   Clock,
   CheckCircle,
   RefreshCw,
-  XCircle
+  XCircle,
 } from "lucide-react";
-import { useEffect, useState } from "react";
-import axios from "axios";
+import { useEffect, useState, useCallback } from "react";
+import api from "../services/api"
 
 /* ---------------- HELPERS ---------------- */
 const getStatusConfig = (status) => {
@@ -16,31 +16,31 @@ const getStatusConfig = (status) => {
       return {
         color: "bg-yellow-100 text-yellow-700 border-yellow-200",
         icon: Clock,
-        label: "Pending"
+        label: "Pending",
       };
     case "in_progress":
       return {
         color: "bg-purple-100 text-purple-700 border-purple-200",
         icon: RefreshCw,
-        label: "In Progress"
+        label: "In Progress",
       };
     case "cancelled":
       return {
         color: "bg-red-100 text-red-700 border-red-200",
         icon: XCircle,
-        label: "Cancelled"
+        label: "Cancelled",
       };
     case "completed":
       return {
         color: "bg-green-100 text-green-700 border-green-200",
         icon: CheckCircle,
-        label: "Completed"
+        label: "Completed",
       };
     default:
       return {
         color: "bg-gray-100 text-gray-700 border-gray-200",
         icon: Clock,
-        label: status
+        label: status,
       };
   }
 };
@@ -66,23 +66,21 @@ export function ActiveRequestsPage() {
   const [searchQuery, setSearchQuery] = useState("");
   const [requests, setRequests] = useState([]);
 
-  const userEmail = JSON.parse(localStorage.getItem("user"))?.email;
+  const userEmail = localStorage.getItem("email");
 
   /* ---------------- FETCH REQUESTS ---------------- */
-  const fetchRequests = async () => {
-    try {
-      const res = await axios.get(
-        `http://localhost:8000/requests/${userEmail}`
-      );
-      setRequests(res.data || []);
-    } catch (err) {
-      console.log("Error fetching requests:", err);
-    }
-  };
+  const fetchRequests = useCallback(async () => {
+  try {
+    const res = await api.get(`/requests/${userEmail}`);
+    setRequests(res.data || []);
+  } catch (err) {
+    console.log("Error fetching requests:", err);
+  }
+}, [userEmail]);
 
   useEffect(() => {
     if (userEmail) fetchRequests();
-  }, [userEmail]);
+  }, [userEmail, fetchRequests]);
 
   /* ---------------- ACTIONS ---------------- */
 
@@ -93,12 +91,9 @@ export function ActiveRequestsPage() {
     }
 
     try {
-      await axios.put(
-        `http://localhost:8000/requests/${request.id}/complete`,
-        {
-          customer_email: userEmail
-        }
-      );
+      await api.put(`/requests/${request.id}/complete`, {
+        customer_email: userEmail,
+      });
 
       fetchRequests();
     } catch (err) {
@@ -108,12 +103,9 @@ export function ActiveRequestsPage() {
 
   const handleCancel = async (requestId) => {
     try {
-      await axios.put(
-        `http://localhost:8000/requests/${requestId}/cancel`,
-        {
-          customer_email: userEmail
-        }
-      );
+      await api.put(`/requests/${requestId}/cancel`, {
+        customer_email: userEmail,
+      });
 
       fetchRequests();
     } catch (err) {
@@ -127,8 +119,12 @@ export function ActiveRequestsPage() {
       filterStatus === "all" || request.status === filterStatus;
 
     const matchesSearch =
-      (request.category || "").toLowerCase().includes(searchQuery.toLowerCase()) ||
-      (request.description || "").toLowerCase().includes(searchQuery.toLowerCase()) ||
+      (request.category || "")
+        .toLowerCase()
+        .includes(searchQuery.toLowerCase()) ||
+      (request.description || "")
+        .toLowerCase()
+        .includes(searchQuery.toLowerCase()) ||
       (request.id || "").toLowerCase().includes(searchQuery.toLowerCase());
 
     return matchesFilter && matchesSearch;
@@ -137,7 +133,6 @@ export function ActiveRequestsPage() {
   /* ---------------- UI ---------------- */
   return (
     <div className="min-h-screen bg-gray-50 p-6">
-
       {/* HEADER */}
       <div className="flex justify-between items-center mb-8">
         <div>
@@ -148,9 +143,7 @@ export function ActiveRequestsPage() {
         </div>
 
         <button
-          onClick={() =>
-            navigate("/customer-dashboard/post-request")
-          }
+          onClick={() => navigate("/customer-dashboard/post-request")}
           className="flex items-center bg-blue-600 text-white px-4 py-2 rounded-xl hover:bg-blue-700 transition"
         >
           <PlusCircle className="w-4 h-4 mr-2" />
@@ -160,25 +153,26 @@ export function ActiveRequestsPage() {
 
       {/* FILTER */}
       <div className="flex gap-2 mb-6 flex-wrap">
-        {["all", "pending", "in_progress", "completed", "cancelled"].map((status) => (
-          <button
-            key={status}
-            onClick={() => setFilterStatus(status)}
-            className={`px-4 py-2 rounded-xl border text-sm transition
+        {["all", "pending", "in_progress", "completed", "cancelled"].map(
+          (status) => (
+            <button
+              key={status}
+              onClick={() => setFilterStatus(status)}
+              className={`px-4 py-2 rounded-xl border text-sm transition
               ${
                 filterStatus === status
                   ? "bg-blue-600 text-white"
                   : "bg-white text-gray-700 hover:bg-gray-100"
               }`}
-          >
-            {status}
-          </button>
-        ))}
+            >
+              {status}
+            </button>
+          ),
+        )}
       </div>
 
       {/* REQUEST LIST */}
       <div className="grid md:grid-cols-2 xl:grid-cols-3 gap-6">
-
         {filteredRequests.map((request) => {
           const statusConfig = getStatusConfig(request.status);
           const StatusIcon = statusConfig.icon;
@@ -188,12 +182,13 @@ export function ActiveRequestsPage() {
               key={request.id}
               className="bg-white rounded-2xl border p-5 shadow-sm"
             >
-
               {/* HEADER */}
               <div className="flex justify-between">
                 <h3 className="font-semibold">{request.category}</h3>
 
-                <span className={`px-2 py-1 text-xs rounded-lg border ${getUrgencyColor(request.urgency)}`}>
+                <span
+                  className={`px-2 py-1 text-xs rounded-lg border ${getUrgencyColor(request.urgency)}`}
+                >
                   {request.urgency || "normal"}
                 </span>
               </div>
@@ -210,21 +205,22 @@ export function ActiveRequestsPage() {
               </div>
 
               {/* STATUS */}
-              <div className={`flex items-center gap-2 text-xs px-3 py-1 rounded-lg border w-fit mt-4 ${statusConfig.color}`}>
+              <div
+                className={`flex items-center gap-2 text-xs px-3 py-1 rounded-lg border w-fit mt-4 ${statusConfig.color}`}
+              >
                 <StatusIcon className="w-3 h-3" />
                 {statusConfig.label}
               </div>
 
               {/* ACTIONS */}
               <div className="mt-4 space-y-2">
-
                 {request.status === "pending" && (
                   <>
                     <button
                       className="w-full bg-gray-100 py-2 rounded-xl text-sm"
                       onClick={() =>
                         navigate("/customer-available-offers", {
-                          state: { requestId: request.id }
+                          state: { requestId: request.id },
                         })
                       }
                     >
@@ -257,13 +253,10 @@ export function ActiveRequestsPage() {
                     </button>
                   </>
                 )}
-
               </div>
-
             </div>
           );
         })}
-
       </div>
     </div>
   );
