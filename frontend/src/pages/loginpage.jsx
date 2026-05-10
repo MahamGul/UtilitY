@@ -371,14 +371,15 @@ export default function LoginPage() {
 
       if (!res.ok) throw new Error(data.detail || "Login failed");
 
-      // ✅ FIXED: Save user to localStorage so dashboard can read the name
-      localStorage.setItem("user", JSON.stringify(data.user));
       localStorage.setItem("email", email);
+      localStorage.setItem("access_token", data.access_token);
+      localStorage.setItem("refresh_token", data.refresh_token);
+      localStorage.setItem("role", data.role); // save role for routing
 
       alert("Login successful");
 
       // Redirect based on role
-      if (data.user.role === "customer") {
+      if (data.role === "customer") {
         navigate("/customer-dashboard");
       } else {
         navigate("/provider-dashboard");

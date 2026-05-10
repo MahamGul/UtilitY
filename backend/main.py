@@ -132,8 +132,7 @@ def login(user: dict):
     db_user = db.user.find_one(
         {
             "email": user["email"]
-        },
-        {"_id": 0}
+        }
     )
 
     if not db_user:

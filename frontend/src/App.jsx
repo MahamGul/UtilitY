@@ -1,4 +1,10 @@
-import { BrowserRouter as Router, Routes, Route, Navigate, useLocation } from "react-router-dom";
+import {
+  BrowserRouter as Router,
+  Routes,
+  Route,
+  Navigate,
+  useLocation,
+} from "react-router-dom";
 
 // Public pages
 import HomePage from "./HomePage";
@@ -26,7 +32,6 @@ import ProviderMessages from "./pages/provider_messages";
 import CustomerChatbot from "./pages/customerchatbot";
 import ProviderChatbot from "./pages/providerchatbot";
 
-
 // ---------------- CHATBOT CONTROLLER ----------------
 function ChatbotController() {
   const location = useLocation();
@@ -35,12 +40,10 @@ function ChatbotController() {
 
   // Show customer chatbot
   const isCustomerPage =
-    path.startsWith("/customer") ||
-    path === "/customer-dashboard";
+    path.startsWith("/customer") || path === "/customer-dashboard";
 
   // Show provider chatbot
-  const isProviderPage =
-    path.startsWith("/provider") ||  path.includes("bids");
+  const isProviderPage = path.startsWith("/provider") || path.includes("bids");
 
   return (
     <>
@@ -50,27 +53,83 @@ function ChatbotController() {
   );
 }
 
+function ProtectedRoute({ children, role }) {
+  const token = localStorage.getItem("access_token");
+  const userRole = localStorage.getItem("role");
+
+  if (!token) return <Navigate to="/login" />;
+  if (role && userRole !== role) return <Navigate to="/login" />;
+
+  return children;
+}
 
 // ---------------- MAIN APP ----------------
 export default function App() {
   return (
     <Router>
-
       <Routes>
-
         {/* Public routes */}
         <Route path="/" element={<HomePage />} />
         <Route path="/login" element={<LoginPage />} />
         <Route path="/signup" element={<SignupPage />} />
 
         {/* Customer area */}
-        <Route path="/customer-dashboard" element={<CustomerLayout />}>
-          <Route index element={<CustomerDashboard />} />
-          <Route path="profile" element={<CustomerProfilePage />} />
-          <Route path="my-requests" element={<ActiveRequestsPage />} />
-          <Route path="post-request" element={<PostRequestPage />} />
-          <Route path="history" element={<ServiceHistoryPage />} />
-          <Route path="messages" element={<CustomerMessages />} />
+        <Route
+          path="/customer-dashboard"
+          element={
+            <ProtectedRoute role="customer">
+              <CustomerLayout />
+            </ProtectedRoute>
+          }
+        >
+          <Route
+            index
+            element={
+              <ProtectedRoute role="customer">
+                <CustomerDashboard />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="profile"
+            element={
+              <ProtectedRoute role="customer">
+                <CustomerProfilePage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="my-requests"
+            element={
+              <ProtectedRoute role="customer">
+                <ActiveRequestsPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="post-request"
+            element={
+              <ProtectedRoute role="customer">
+                <PostRequestPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="history"
+            element={
+              <ProtectedRoute role="customer">
+                <ServiceHistoryPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="messages"
+            element={
+              <ProtectedRoute role="customer">
+                <CustomerMessages />
+              </ProtectedRoute>
+            }
+          />
         </Route>
 
         {/* Customer offers */}
@@ -80,20 +139,53 @@ export default function App() {
         />
 
         {/* Provider area */}
-        <Route path="/provider-dashboard" element={<ProviderDashboard />} />
-        <Route path="/provider-profile" element={<ProviderProfilePage />} />
-        <Route path="/bids-history" element={<BidsHistoryPage />} />
-        <Route path="/my-bids" element={<MyBidsPage />} />
-        <Route path="/provider-messages" element={<ProviderMessages />} />
+        <Route
+          path="/provider-dashboard"
+          element={
+            <ProtectedRoute role="provider">
+              <ProviderDashboard />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/provider-profile"
+          element={
+            <ProtectedRoute role="provider">
+              <ProviderProfilePage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/bids-history"
+          element={
+            <ProtectedRoute role="provider">
+              <BidsHistoryPage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/my-bids"
+          element={
+            <ProtectedRoute role="provider">
+              <MyBidsPage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/provider-messages"
+          element={
+            <ProtectedRoute role="provider">
+              <ProviderMessages />
+            </ProtectedRoute>
+          }
+        />
 
         {/* Fallback */}
         <Route path="*" element={<Navigate to="/" />} />
-
       </Routes>
 
       {/* ✅ GLOBAL CHATBOT CONTROL */}
       <ChatbotController />
-
     </Router>
   );
 }
