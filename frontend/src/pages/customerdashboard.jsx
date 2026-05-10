@@ -1,7 +1,9 @@
 import { useState, useEffect } from "react";
 import { Clock, CheckCircle, Star, Loader } from "lucide-react";
-export default function CustomerDashboard() {
+import api from "../services/api";
 
+export default function CustomerDashboard() {
+  const email = localStorage.getItem("email");
   // ---------------- USER ----------------
   const [user, setUser] = useState(null);
 
@@ -35,14 +37,14 @@ export default function CustomerDashboard() {
   useEffect(() => {
     const fetchRequests = async () => {
       try {
-        if (!user?.email) return;
-        const res = await fetch(`http://127.0.0.1:8000/requests/${user.email}`);
+        if (!email) return;
+        const res = await api.get(`/requests/${email}`);
         const data = await res.json();
-        const normalized = data.map(item => ({
+        const normalized = data.map((item) => ({
           ...item,
           id: item.id || item._id,
           status: item.status?.toLowerCase(),
-          feedback_given: item.feedback_given ?? false
+          feedback_given: item.feedback_given ?? false,
         }));
         setActiveRequests(normalized);
       } catch (err) {
@@ -50,7 +52,7 @@ export default function CustomerDashboard() {
       }
     };
     fetchRequests();
-  }, [user]);
+  }, [email]);
 
   // ---------------- TOP PROVIDERS ----------------
   const [topProviders, setTopProviders] = useState([]);
@@ -58,9 +60,7 @@ export default function CustomerDashboard() {
   useEffect(() => {
     const fetchTopProviders = async () => {
       try {
-        const res = await fetch(
-          `http://127.0.0.1:8000/provider/top?serviceType=${serviceType}`
-        );
+        const res = await api.get(`/provider/top?serviceType=${serviceType}`);
         const data = await res.json();
         if (Array.isArray(data)) {
           setTopProviders(data);
@@ -76,10 +76,10 @@ export default function CustomerDashboard() {
   }, [serviceType]);
 
   // ---------------- FILTERS ----------------
-  const pending = activeRequests.filter(r => r.status === "pending");
-  const inProgress = activeRequests.filter(r => r.status === "in_progress");
-  const completed = activeRequests.filter(r => r.status === "completed");
-  const unrated = completed.filter(r => r.feedback_given === false);
+  const pending = activeRequests.filter((r) => r.status === "pending");
+  const inProgress = activeRequests.filter((r) => r.status === "in_progress");
+  const completed = activeRequests.filter((r) => r.status === "completed");
+  const unrated = completed.filter((r) => r.feedback_given === false);
 
   // ---------------- RATING STATES ----------------
   const [showRatingModal, setShowRatingModal] = useState(false);
@@ -112,25 +112,21 @@ export default function CustomerDashboard() {
 
   const submitRating = async () => {
     try {
-      const res = await fetch("http://127.0.0.1:8000/feedback", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          request_id: selectedService.id,
-          customer_email: user.email,
-          rating,
-          comment: reviewText
-        })
+      const res = await api.post("/feedback", {
+        request_id: selectedService.id,
+        customer_email: email, // uses the email variable from above
+        rating: rating,
+        comment: reviewText,
       });
       const data = await res.json();
       if (!res.ok) {
         alert(data.detail || "Error submitting feedback");
         return;
       }
-      setActiveRequests(prev =>
-        prev.map(r =>
-          r.id === selectedService.id ? { ...r, feedback_given: true } : r
-        )
+      setActiveRequests((prev) =>
+        prev.map((r) =>
+          r.id === selectedService.id ? { ...r, feedback_given: true } : r,
+        ),
       );
       closeModal();
     } catch (err) {
@@ -141,7 +137,6 @@ export default function CustomerDashboard() {
 
   return (
     <div className="min-h-screen bg-gray-50">
-
       {/* HEADER */}
       <header className="bg-white px-8 py-6 flex justify-between items-center border-b">
         <div>
@@ -165,10 +160,30 @@ export default function CustomerDashboard() {
 
       {/* STATS */}
       <div className="p-8 grid grid-cols-4 gap-6">
-        <StatCard title="Pending"     count={pending.length}    icon={<Clock />}        color="bg-yellow-100 text-yellow-600" />
-        <StatCard title="In Progress" count={inProgress.length} icon={<Loader />}       color="bg-purple-100 text-purple-600" />
-        <StatCard title="Completed"   count={completed.length}  icon={<CheckCircle />}  color="bg-green-100 text-green-600" />
-        <StatCard title="To Rate"     count={unrated.length}    icon={<Star />}         color="bg-orange-100 text-orange-600" />
+        <StatCard
+          title="Pending"
+          count={pending.length}
+          icon={<Clock />}
+          color="bg-yellow-100 text-yellow-600"
+        />
+        <StatCard
+          title="In Progress"
+          count={inProgress.length}
+          icon={<Loader />}
+          color="bg-purple-100 text-purple-600"
+        />
+        <StatCard
+          title="Completed"
+          count={completed.length}
+          icon={<CheckCircle />}
+          color="bg-green-100 text-green-600"
+        />
+        <StatCard
+          title="To Rate"
+          count={unrated.length}
+          icon={<Star />}
+          color="bg-orange-100 text-orange-600"
+        />
       </div>
 
       {/* SERVICE TYPE SELECTOR */}
@@ -224,7 +239,7 @@ export default function CustomerDashboard() {
             Rate Your Completed Services
           </h2>
           <div className="grid gap-4">
-            {unrated.map(service => (
+            {unrated.map((service) => (
               <div
                 key={service.id}
                 className="bg-white p-4 rounded-xl shadow flex justify-between items-center"
@@ -269,7 +284,7 @@ export default function CustomerDashboard() {
             </button>
             <h2 className="text-xl font-bold mb-2">Rate Service</h2>
             <div className="flex justify-center gap-2 mb-4">
-              {[1, 2, 3, 4, 5].map(star => (
+              {[1, 2, 3, 4, 5].map((star) => (
                 <Star
                   key={star}
                   onClick={() => setRating(star)}
@@ -308,8 +323,6 @@ export default function CustomerDashboard() {
           </div>
         </div>
       )}
-
-
     </div>
   );
 }
@@ -318,7 +331,9 @@ export default function CustomerDashboard() {
 function StatCard({ title, count, icon, color }) {
   return (
     <div className="bg-white p-5 rounded-xl shadow flex items-center gap-4">
-      <div className={`w-12 h-12 rounded-full flex items-center justify-center ${color}`}>
+      <div
+        className={`w-12 h-12 rounded-full flex items-center justify-center ${color}`}
+      >
         {icon}
       </div>
       <div>
