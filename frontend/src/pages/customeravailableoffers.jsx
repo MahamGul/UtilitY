@@ -16,8 +16,7 @@ import {
   Award,
 } from "lucide-react";
 import axios from "axios";
-
-const API = "http://localhost:8000";
+import api from "../services/api";
 
 export function CustomerAvailableOffers() {
   const navigate = useNavigate();
@@ -50,7 +49,7 @@ export function CustomerAvailableOffers() {
           setLoading(false);
           return;
         }
-        const res = await axios.get(`${API}/bids/request/${requestId}`);
+        const res = await api.get(`/bids/request/${requestId}`);
         setBids(res.data || []);
       } catch (err) {
         console.log("Error fetching bids:", err);
@@ -69,7 +68,7 @@ export function CustomerAvailableOffers() {
     setShowProviderModal(true);
 
     try {
-      const res = await axios.get(`${API}/provider/profile/${providerEmail}`);
+      const res = await api.get(`/provider/profile/${providerEmail}`);
       setProviderProfile(res.data);
     } catch (err) {
       setProviderError(
@@ -84,7 +83,7 @@ export function CustomerAvailableOffers() {
   const handleAccept = async (bidId) => {
     try {
       const user = JSON.parse(localStorage.getItem("user"));
-      await axios.put(`${API}/bids/${bidId}/status`, {
+      await api.put(`/bids/${bidId}/status`, {
         status: "accepted",
         customer_email: user?.email,
       });
