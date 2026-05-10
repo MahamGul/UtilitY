@@ -24,25 +24,24 @@ import {
   SlidersHorizontal,
   CalendarDays,
   FileText,
-  ExternalLink
+  ExternalLink,
 } from "lucide-react";
 import { Button } from "../ui/button";
-
-const API_BASE = "http://localhost:8000";
+import api from "../services/api";
 
 const CATEGORIES = [
-  { value: "plumber",         label: "Plumber" },
-  { value: "electrician",     label: "Electrician" },
-  { value: "mechanic",        label: "Mechanic" },
-  { value: "carpenter",       label: "Carpenter" },
-  { value: "general repair",  label: "General Repair" },
+  { value: "plumber", label: "Plumber" },
+  { value: "electrician", label: "Electrician" },
+  { value: "mechanic", label: "Mechanic" },
+  { value: "carpenter", label: "Carpenter" },
+  { value: "general repair", label: "General Repair" },
 ];
 
 const CATEGORY_COLORS = {
-  plumber:          "bg-blue-100 text-blue-700",
-  electrician:      "bg-yellow-100 text-yellow-700",
-  mechanic:         "bg-gray-100 text-gray-700",
-  carpenter:        "bg-orange-100 text-orange-700",
+  plumber: "bg-blue-100 text-blue-700",
+  electrician: "bg-yellow-100 text-yellow-700",
+  mechanic: "bg-gray-100 text-gray-700",
+  carpenter: "bg-orange-100 text-orange-700",
   "general repair": "bg-purple-100 text-purple-700",
 };
 
@@ -55,55 +54,50 @@ function timeAgo(dateStr) {
   return `${Math.floor(diff / 86400)}d ago`;
 }
 
-function getProviderInfo() {
-  try {
-    return JSON.parse(localStorage.getItem("user") || "{}");
-  } catch {
-    return {};
-  }
-}
-
 export function MyBidsPage() {
-  const [requests, setRequests]                 = useState([]);
+  const [requests, setRequests] = useState([]);
   // null = still initializing (show spinner), true/false = actual loading state
-  const [skillLoading, setSkillLoading]         = useState(true);
-  const [loading, setLoading]                   = useState(false);
-  const [error, setError]                       = useState(null);
-  const [providerSkill, setProviderSkill]       = useState(null);
+  const [skillLoading, setSkillLoading] = useState(true);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState(null);
+  const [providerSkill, setProviderSkill] = useState(null);
 
   // Modals
-  const [showBidModal, setShowBidModal]         = useState(false);
+  const [showBidModal, setShowBidModal] = useState(false);
   const [showDetailsModal, setShowDetailsModal] = useState(false);
-  const [showPrefsModal, setShowPrefsModal]     = useState(false);
-  const [selectedRequest, setSelectedRequest]   = useState(null);
+  const [showPrefsModal, setShowPrefsModal] = useState(false);
+  const [selectedRequest, setSelectedRequest] = useState(null);
 
   // Bid form
-  const [bidAmount, setBidAmount]               = useState("");
-  const [availability, setAvailability]         = useState("");
-  const [completionTime, setCompletionTime]     = useState("");
-  const [bidMessage, setBidMessage]             = useState("");
-  const [submitting, setSubmitting]             = useState(false);
-  const [submitSuccess, setSubmitSuccess]       = useState(false);
-  const [submitError, setSubmitError]           = useState(null);
+  const [bidAmount, setBidAmount] = useState("");
+  const [availability, setAvailability] = useState("");
+  const [completionTime, setCompletionTime] = useState("");
+  const [bidMessage, setBidMessage] = useState("");
+  const [submitting, setSubmitting] = useState(false);
+  const [submitSuccess, setSubmitSuccess] = useState(false);
+  const [submitError, setSubmitError] = useState(null);
 
   // Preferences
   const [prefCategories, setPrefCategories] = useState(() => {
-    try { return JSON.parse(localStorage.getItem("providerPrefCategories") || "[]"); }
-    catch { return []; }
+    try {
+      return JSON.parse(localStorage.getItem("providerPrefCategories") || "[]");
+    } catch {
+      return [];
+    }
   });
 
-  const getProviderEmail = () => getProviderInfo().email || "";
+  const ProviderEmail = localStorage.getItem("email");
 
   // ── Step 1: Fetch provider skill first, THEN trigger request fetch ──
   useEffect(() => {
     const fetchProviderSkill = async () => {
-      const email = getProviderEmail();
+      const email = ProviderEmail;
       if (!email) {
         setSkillLoading(false);
         return;
       }
       try {
-        const res = await fetch(`${API_BASE}/provider/profile/${email}`);
+        const res = await api.get(`/provider/profile/${email}`);
         if (!res.ok) throw new Error("Failed to load profile");
         const data = await res.json();
         setProviderSkill(data.serviceType?.toLowerCase().trim() || "");
@@ -118,15 +112,15 @@ export function MyBidsPage() {
 
   // ── Step 2: Only fetch requests once skill is known ──
   const fetchRequests = useCallback(async () => {
-    const email = getProviderEmail();
+    const email = ProviderEmail;
     if (!email || providerSkill === null) return; // still initializing
 
     setLoading(true);
     setError(null);
     try {
       const url = providerSkill
-        ? `${API_BASE}/available-requests/${email}?category=${encodeURIComponent(providerSkill)}`
-        : `${API_BASE}/available-requests/${email}`;
+        ? `/available-requests/${email}?category=${encodeURIComponent(providerSkill)}`
+        : `/available-requests/${email}`;
 
       const res = await fetch(url);
       if (!res.ok) throw new Error("Failed to fetch requests");
@@ -170,16 +164,16 @@ export function MyBidsPage() {
     setSubmitting(true);
     setSubmitError(null);
     try {
-      const res = await fetch(`${API_BASE}/bids`, {
+      const res = await api.get(`/bids`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          request_id:      selectedRequest.id,
-          provider_email:  getProviderEmail(),
-          bid_amount:      amountNum,
+          request_id: selectedRequest.id,
+          provider_email: ProviderEmail,
+          bid_amount: amountNum,
           availability,
           completion_time: completionTime,
-          message:         bidMessage,
+          message: bidMessage,
         }),
       });
       const data = await res.json();
@@ -208,7 +202,6 @@ export function MyBidsPage() {
 
   return (
     <div className="min-h-screen bg-gray-50 flex">
-
       {/* ── Sidebar ─────────────────────────────────────────── */}
       <aside className="w-64 bg-white border-r flex flex-col shrink-0">
         <div className="p-6 border-b">
@@ -220,14 +213,39 @@ export function MyBidsPage() {
           </Link>
         </div>
         <nav className="flex-1 p-4 space-y-2">
-          <NavItem to="/provider-dashboard" icon={<LayoutDashboard size={18} />} label="Home" />
-          <NavItem to="/provider-messages"  icon={<MessageSquare size={18} />}   label="Messages" badge="5" />
-          <NavItem to="/bids-history"       icon={<History size={18} />}          label="Bids History" />
-          <NavItem to="/my-bids"            icon={<ClipboardList size={18} />}   label="Available Bids" active />
-          <NavItem to="/provider-profile"   icon={<User size={18} />}             label="Profile" />
+          <NavItem
+            to="/provider-dashboard"
+            icon={<LayoutDashboard size={18} />}
+            label="Home"
+          />
+          <NavItem
+            to="/provider-messages"
+            icon={<MessageSquare size={18} />}
+            label="Messages"
+            badge="5"
+          />
+          <NavItem
+            to="/bids-history"
+            icon={<History size={18} />}
+            label="Bids History"
+          />
+          <NavItem
+            to="/my-bids"
+            icon={<ClipboardList size={18} />}
+            label="Available Bids"
+            active
+          />
+          <NavItem
+            to="/provider-profile"
+            icon={<User size={18} />}
+            label="Profile"
+          />
         </nav>
         <div className="p-4 border-t">
-          <Link to="/login" className="flex items-center gap-3 text-red-600 hover:bg-red-50 px-3 py-2 rounded-lg">
+          <Link
+            to="/login"
+            className="flex items-center gap-3 text-red-600 hover:bg-red-50 px-3 py-2 rounded-lg"
+          >
             <LogOut size={18} /> Logout
           </Link>
         </div>
@@ -235,7 +253,6 @@ export function MyBidsPage() {
 
       {/* ── Main ────────────────────────────────────────────── */}
       <main className="flex-1 p-8 overflow-y-auto">
-
         {/* Header */}
         <div className="flex items-center justify-between mb-1">
           <h1 className="text-3xl font-bold">Available Job Requests</h1>
@@ -244,18 +261,25 @@ export function MyBidsPage() {
             disabled={isPageLoading}
             className="flex items-center gap-2 text-sm text-gray-500 hover:text-sky-600 transition disabled:opacity-40"
           >
-            <RefreshCw size={15} className={isPageLoading ? "animate-spin" : ""} />
+            <RefreshCw
+              size={15}
+              className={isPageLoading ? "animate-spin" : ""}
+            />
             Refresh
           </button>
         </div>
 
         <p className="text-gray-500 mb-6">
           {skillLoading ? (
-            <span className="text-gray-400 text-sm">Loading your profile...</span>
+            <span className="text-gray-400 text-sm">
+              Loading your profile...
+            </span>
           ) : providerSkill ? (
             <>
               Showing requests matching your skill:{" "}
-              <span className={`inline-block text-xs px-3 py-1 rounded-full font-semibold ml-1 ${CATEGORY_COLORS[providerSkill] || "bg-gray-100 text-gray-600"}`}>
+              <span
+                className={`inline-block text-xs px-3 py-1 rounded-full font-semibold ml-1 ${CATEGORY_COLORS[providerSkill] || "bg-gray-100 text-gray-600"}`}
+              >
                 {providerSkill.charAt(0).toUpperCase() + providerSkill.slice(1)}
               </span>
             </>
@@ -269,7 +293,9 @@ export function MyBidsPage() {
           <div>
             <h2 className="text-xl font-semibold">New Job Opportunities</h2>
             <p className="text-sm">
-              {isPageLoading ? "Loading..." : `${matchingCount} request${matchingCount !== 1 ? "s" : ""} available for you`}
+              {isPageLoading
+                ? "Loading..."
+                : `${matchingCount} request${matchingCount !== 1 ? "s" : ""} available for you`}
             </p>
           </div>
           <Button
@@ -284,7 +310,9 @@ export function MyBidsPage() {
         {/* Skill badge — display only */}
         {providerSkill && (
           <div className="flex gap-2 flex-wrap mb-6">
-            <span className={`px-4 py-1.5 rounded-full text-sm font-semibold border border-transparent ${CATEGORY_COLORS[providerSkill] || "bg-gray-100 text-gray-600"}`}>
+            <span
+              className={`px-4 py-1.5 rounded-full text-sm font-semibold border border-transparent ${CATEGORY_COLORS[providerSkill] || "bg-gray-100 text-gray-600"}`}
+            >
               {providerSkill.charAt(0).toUpperCase() + providerSkill.slice(1)}
             </span>
           </div>
@@ -294,7 +322,11 @@ export function MyBidsPage() {
         {isPageLoading && (
           <div className="flex flex-col items-center justify-center py-24 text-gray-400">
             <Loader2 size={36} className="animate-spin mb-3" />
-            <p>{skillLoading ? "Loading your profile..." : "Loading available requests..."}</p>
+            <p>
+              {skillLoading
+                ? "Loading your profile..."
+                : "Loading available requests..."}
+            </p>
           </div>
         )}
 
@@ -302,7 +334,12 @@ export function MyBidsPage() {
           <div className="flex flex-col items-center justify-center py-24 text-red-400">
             <AlertCircle size={36} className="mb-3" />
             <p>{error}</p>
-            <button onClick={fetchRequests} className="mt-4 text-sm text-sky-500 underline">Try again</button>
+            <button
+              onClick={fetchRequests}
+              className="mt-4 text-sm text-sky-500 underline"
+            >
+              Try again
+            </button>
           </div>
         )}
 
@@ -326,25 +363,41 @@ export function MyBidsPage() {
                 key={req.id}
                 request={req}
                 onBid={() => openBidModal(req)}
-                onDetails={() => { setSelectedRequest(req); setShowDetailsModal(true); }}
+                onDetails={() => {
+                  setSelectedRequest(req);
+                  setShowDetailsModal(true);
+                }}
               />
             ))}
           </div>
         )}
-
       </main>
 
       {/* ── Bid Modal ───────────────────────────────────────── */}
       {showBidModal && selectedRequest && (
         <Modal title="Submit Your Bid" onClose={() => setShowBidModal(false)}>
           <div className="bg-blue-50 p-5 rounded-xl mb-5 border border-blue-100">
-            <p className="text-xs text-gray-500 mb-1 uppercase tracking-wide">Service Request</p>
-            <h3 className="font-semibold text-lg mb-3">{selectedRequest.description}</h3>
+            <p className="text-xs text-gray-500 mb-1 uppercase tracking-wide">
+              Service Request
+            </p>
+            <h3 className="font-semibold text-lg mb-3">
+              {selectedRequest.description}
+            </h3>
             <div className="grid grid-cols-2 gap-3 text-sm">
-              <Info label="Client"   value={selectedRequest.user_name || "—"} />
-              <Info label="Budget"   value={`Rs. ${selectedRequest.budget?.toLocaleString()}`} green />
-              <Info label="Location" value={selectedRequest.location_name || "—"} />
-              <Info label="Date"     value={`${selectedRequest.date} at ${selectedRequest.time}`} />
+              <Info label="Client" value={selectedRequest.user_name || "—"} />
+              <Info
+                label="Budget"
+                value={`Rs. ${selectedRequest.budget?.toLocaleString()}`}
+                green
+              />
+              <Info
+                label="Location"
+                value={selectedRequest.location_name || "—"}
+              />
+              <Info
+                label="Date"
+                value={`${selectedRequest.date} at ${selectedRequest.time}`}
+              />
             </div>
           </div>
 
@@ -352,7 +405,9 @@ export function MyBidsPage() {
             <div className="flex flex-col items-center py-8 text-green-600">
               <CheckCircle size={48} className="mb-3" />
               <p className="text-xl font-semibold">Bid Submitted!</p>
-              <p className="text-sm text-gray-500 mt-1">The client will be notified.</p>
+              <p className="text-sm text-gray-500 mt-1">
+                The client will be notified.
+              </p>
             </div>
           ) : (
             <>
@@ -379,7 +434,9 @@ export function MyBidsPage() {
                 onChange={(e) => setCompletionTime(e.target.value)}
               />
               <div className="mb-4">
-                <label className="block text-sm font-medium mb-1">Message to Client (Optional)</label>
+                <label className="block text-sm font-medium mb-1">
+                  Message to Client (Optional)
+                </label>
                 <textarea
                   placeholder="Introduce yourself and explain why you're the best fit..."
                   value={bidMessage}
@@ -398,12 +455,23 @@ export function MyBidsPage() {
                   disabled={submitting}
                   className="flex-1 bg-sky-500 hover:bg-sky-600 text-white flex items-center justify-center gap-2"
                 >
-                  {submitting
-                    ? <><Loader2 size={16} className="animate-spin" /> Submitting...</>
-                    : <><Send size={16} /> Submit Bid</>
-                  }
+                  {submitting ? (
+                    <>
+                      <Loader2 size={16} className="animate-spin" />{" "}
+                      Submitting...
+                    </>
+                  ) : (
+                    <>
+                      <Send size={16} /> Submit Bid
+                    </>
+                  )}
                 </Button>
-                <Button variant="outline" onClick={() => setShowBidModal(false)} disabled={submitting} className="flex-1">
+                <Button
+                  variant="outline"
+                  onClick={() => setShowBidModal(false)}
+                  disabled={submitting}
+                  className="flex-1"
+                >
                   Cancel
                 </Button>
               </div>
@@ -414,31 +482,65 @@ export function MyBidsPage() {
 
       {/* ── View Details Modal ──────────────────────────────── */}
       {showDetailsModal && selectedRequest && (
-        <Modal title="Request Details" onClose={() => setShowDetailsModal(false)}>
+        <Modal
+          title="Request Details"
+          onClose={() => setShowDetailsModal(false)}
+        >
           <div className="space-y-4">
-            <span className={`inline-block text-xs px-3 py-1 rounded-full font-medium ${CATEGORY_COLORS[selectedRequest.category] || "bg-gray-100 text-gray-600"}`}>
+            <span
+              className={`inline-block text-xs px-3 py-1 rounded-full font-medium ${CATEGORY_COLORS[selectedRequest.category] || "bg-gray-100 text-gray-600"}`}
+            >
               {selectedRequest.category}
             </span>
             <div>
-              <p className="text-xs text-gray-400 uppercase tracking-wide mb-1">Description</p>
+              <p className="text-xs text-gray-400 uppercase tracking-wide mb-1">
+                Description
+              </p>
               <p className="text-gray-800">{selectedRequest.description}</p>
             </div>
             {selectedRequest.note && (
               <div>
-                <p className="text-xs text-gray-400 uppercase tracking-wide mb-1">Additional Note</p>
+                <p className="text-xs text-gray-400 uppercase tracking-wide mb-1">
+                  Additional Note
+                </p>
                 <p className="text-gray-600 text-sm">{selectedRequest.note}</p>
               </div>
             )}
             <div className="grid grid-cols-2 gap-3 text-sm">
-              <DetailCard icon={<User size={14} />}         label="Client"      value={selectedRequest.user_name || "—"} />
-              <DetailCard icon={<DollarSign size={14} />}   label="Budget"      value={`Rs. ${selectedRequest.budget?.toLocaleString()}`} />
-              <DetailCard icon={<MapPin size={14} />}       label="Location"    value={selectedRequest.location_name || "—"} />
-              <DetailCard icon={<CalendarDays size={14} />} label="Date"        value={`${selectedRequest.date} at ${selectedRequest.time}`} />
-              <DetailCard icon={<FileText size={14} />}     label="Bids so far" value={selectedRequest.totalBids ?? 0} />
-              <DetailCard icon={<Clock size={14} />}        label="Posted"      value={timeAgo(selectedRequest.created_at)} />
+              <DetailCard
+                icon={<User size={14} />}
+                label="Client"
+                value={selectedRequest.user_name || "—"}
+              />
+              <DetailCard
+                icon={<DollarSign size={14} />}
+                label="Budget"
+                value={`Rs. ${selectedRequest.budget?.toLocaleString()}`}
+              />
+              <DetailCard
+                icon={<MapPin size={14} />}
+                label="Location"
+                value={selectedRequest.location_name || "—"}
+              />
+              <DetailCard
+                icon={<CalendarDays size={14} />}
+                label="Date"
+                value={`${selectedRequest.date} at ${selectedRequest.time}`}
+              />
+              <DetailCard
+                icon={<FileText size={14} />}
+                label="Bids so far"
+                value={selectedRequest.totalBids ?? 0}
+              />
+              <DetailCard
+                icon={<Clock size={14} />}
+                label="Posted"
+                value={timeAgo(selectedRequest.created_at)}
+              />
             </div>
 
-            {(selectedRequest.location_link || selectedRequest.location_name) && (
+            {(selectedRequest.location_link ||
+              selectedRequest.location_name) && (
               <a
                 href={
                   selectedRequest.location_name
@@ -456,24 +558,34 @@ export function MyBidsPage() {
               </a>
             )}
 
-            {selectedRequest.image_url && selectedRequest.image_url.startsWith("http") && (
-              <div>
-                <p className="text-xs text-gray-400 uppercase tracking-wide mb-1">Attached Photo</p>
-                <img
-                  src={selectedRequest.image_url}
-                  alt="Job"
-                  className="rounded-xl w-full max-h-52 object-cover border"
-                />
-              </div>
-            )}
+            {selectedRequest.image_url &&
+              selectedRequest.image_url.startsWith("http") && (
+                <div>
+                  <p className="text-xs text-gray-400 uppercase tracking-wide mb-1">
+                    Attached Photo
+                  </p>
+                  <img
+                    src={selectedRequest.image_url}
+                    alt="Job"
+                    className="rounded-xl w-full max-h-52 object-cover border"
+                  />
+                </div>
+              )}
             <div className="flex gap-3 pt-2">
               <Button
                 className="flex-1 bg-sky-500 hover:bg-sky-600 text-white flex items-center justify-center gap-2"
-                onClick={() => { setShowDetailsModal(false); openBidModal(selectedRequest); }}
+                onClick={() => {
+                  setShowDetailsModal(false);
+                  openBidModal(selectedRequest);
+                }}
               >
                 <Send size={16} /> Submit Bid
               </Button>
-              <Button variant="outline" className="flex-1" onClick={() => setShowDetailsModal(false)}>
+              <Button
+                variant="outline"
+                className="flex-1"
+                onClick={() => setShowDetailsModal(false)}
+              >
                 Close
               </Button>
             </div>
@@ -495,7 +607,8 @@ export function MyBidsPage() {
 
 /* ─── Request Card ──────────────────────────────────────────── */
 function RequestCard({ request, onBid, onDetails }) {
-  const colorClass = CATEGORY_COLORS[request.category] || "bg-gray-100 text-gray-600";
+  const colorClass =
+    CATEGORY_COLORS[request.category] || "bg-gray-100 text-gray-600";
   return (
     <div className="bg-white p-6 rounded-2xl shadow border hover:shadow-md transition">
       <div className="flex justify-between mb-2">
@@ -506,7 +619,9 @@ function RequestCard({ request, onBid, onDetails }) {
           {timeAgo(request.created_at)}
         </span>
       </div>
-      <span className={`inline-block text-xs px-3 py-1 rounded-full mb-4 font-medium ${colorClass}`}>
+      <span
+        className={`inline-block text-xs px-3 py-1 rounded-full mb-4 font-medium ${colorClass}`}
+      >
         {request.category}
       </span>
       <div className="flex justify-between items-center bg-blue-50 p-3 rounded-lg mb-4">
@@ -515,7 +630,9 @@ function RequestCard({ request, onBid, onDetails }) {
             {(request.user_name || "?")[0].toUpperCase()}
           </div>
           <div>
-            <p className="text-sm font-medium">{request.user_name || "Anonymous"}</p>
+            <p className="text-sm font-medium">
+              {request.user_name || "Anonymous"}
+            </p>
             <p className="text-xs text-gray-500">Client</p>
           </div>
         </div>
@@ -527,11 +644,15 @@ function RequestCard({ request, onBid, onDetails }) {
       <div className="grid grid-cols-2 gap-3 mb-4 text-sm">
         <div className="flex items-center gap-2 bg-green-50 p-3 rounded-lg">
           <DollarSign size={15} className="text-green-600 shrink-0" />
-          <span className="truncate">Rs. {request.budget?.toLocaleString()}</span>
+          <span className="truncate">
+            Rs. {request.budget?.toLocaleString()}
+          </span>
         </div>
         <div className="flex items-center gap-2 bg-gray-50 p-3 rounded-lg">
           <MapPin size={15} className="shrink-0" />
-          <span className="truncate">{request.location_name || "Location set"}</span>
+          <span className="truncate">
+            {request.location_name || "Location set"}
+          </span>
         </div>
         <div className="flex items-center gap-2 bg-purple-50 p-3 rounded-lg">
           <CalendarDays size={15} className="text-purple-500 shrink-0" />
@@ -572,7 +693,7 @@ function PreferencesModal({ current, onSave, onClose }) {
   const [selected, setSelected] = useState(current);
   const toggle = (val) =>
     setSelected((prev) =>
-      prev.includes(val) ? prev.filter((v) => v !== val) : [...prev, val]
+      prev.includes(val) ? prev.filter((v) => v !== val) : [...prev, val],
     );
   return (
     <Modal title="Set Job Preferences" onClose={onClose}>
@@ -581,14 +702,19 @@ function PreferencesModal({ current, onSave, onClose }) {
       </p>
       <div className="space-y-2 mb-6">
         {CATEGORIES.map((cat) => (
-          <label key={cat.value} className="flex items-center gap-3 p-3 rounded-xl border cursor-pointer hover:bg-sky-50 transition">
+          <label
+            key={cat.value}
+            className="flex items-center gap-3 p-3 rounded-xl border cursor-pointer hover:bg-sky-50 transition"
+          >
             <input
               type="checkbox"
               checked={selected.includes(cat.value)}
               onChange={() => toggle(cat.value)}
               className="w-4 h-4 accent-sky-500"
             />
-            <span className={`text-xs px-2 py-0.5 rounded-full font-medium mr-1 ${CATEGORY_COLORS[cat.value]}`}>
+            <span
+              className={`text-xs px-2 py-0.5 rounded-full font-medium mr-1 ${CATEGORY_COLORS[cat.value]}`}
+            >
               {cat.label}
             </span>
           </label>
@@ -601,7 +727,9 @@ function PreferencesModal({ current, onSave, onClose }) {
         >
           Save Preferences
         </Button>
-        <Button variant="outline" className="flex-1" onClick={onClose}>Cancel</Button>
+        <Button variant="outline" className="flex-1" onClick={onClose}>
+          Cancel
+        </Button>
       </div>
     </Modal>
   );
@@ -613,12 +741,16 @@ function NavItem({ to, icon, label, badge, active }) {
     <Link
       to={to}
       className={`flex items-center gap-3 px-4 py-3 rounded-xl transition ${
-        active ? "bg-blue-100 text-blue-700 font-semibold" : "text-gray-600 hover:bg-gray-100"
+        active
+          ? "bg-blue-100 text-blue-700 font-semibold"
+          : "text-gray-600 hover:bg-gray-100"
       }`}
     >
       {icon} {label}
       {badge && (
-        <span className="ml-auto bg-sky-500 text-white text-xs px-2 py-0.5 rounded-full">{badge}</span>
+        <span className="ml-auto bg-sky-500 text-white text-xs px-2 py-0.5 rounded-full">
+          {badge}
+        </span>
       )}
     </Link>
   );
@@ -630,7 +762,10 @@ function Modal({ title, onClose, children }) {
       <div className="bg-white w-full max-w-lg max-h-[90vh] overflow-y-auto rounded-2xl shadow-xl">
         <div className="flex items-center justify-between px-6 py-4 border-b">
           <h2 className="text-xl font-bold">{title}</h2>
-          <button onClick={onClose} className="text-gray-400 hover:text-gray-600">
+          <button
+            onClick={onClose}
+            className="text-gray-400 hover:text-gray-600"
+          >
             <X size={20} />
           </button>
         </div>
@@ -640,7 +775,14 @@ function Modal({ title, onClose, children }) {
   );
 }
 
-function FormField({ label, icon, placeholder, value, onChange, type = "text" }) {
+function FormField({
+  label,
+  icon,
+  placeholder,
+  value,
+  onChange,
+  type = "text",
+}) {
   return (
     <div className="mb-4">
       <label className="block text-sm font-medium mb-1">{label}</label>
@@ -662,7 +804,9 @@ function Info({ label, value, green }) {
   return (
     <div>
       <p className="text-xs text-gray-400">{label}</p>
-      <p className={`font-medium text-sm ${green ? "text-green-600" : ""}`}>{value}</p>
+      <p className={`font-medium text-sm ${green ? "text-green-600" : ""}`}>
+        {value}
+      </p>
     </div>
   );
 }
