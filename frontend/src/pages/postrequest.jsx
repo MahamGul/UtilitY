@@ -5,14 +5,14 @@ import { ArrowLeft, Droplet, Zap, Car, Hammer, Wrench } from "lucide-react";
 import { MapContainer, TileLayer, Marker, useMapEvents } from "react-leaflet";
 import "leaflet/dist/leaflet.css";
 import L from "leaflet";
+import api from "../services/api"
 
 delete L.Icon.Default.prototype._getIconUrl;
 L.Icon.Default.mergeOptions({
   iconRetinaUrl:
     "https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon-2x.png",
   iconUrl: "https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon.png",
-  shadowUrl:
-    "https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png",
+  shadowUrl: "https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png",
 });
 
 const categories = [
@@ -24,8 +24,7 @@ const categories = [
 ];
 
 // Cloudinary
-const CLOUDINARY_URL =
-  "https://api.cloudinary.com/v1_1/dajgdjgki/image/upload";
+const CLOUDINARY_URL = "https://api.cloudinary.com/v1_1/dajgdjgki/image/upload";
 const CLOUDINARY_UPLOAD_PRESET = "utility_upload";
 
 // ---------------- LOCATION PICKER ----------------
@@ -35,14 +34,11 @@ function LocationPicker({ setLocation, setLocationName }) {
   const reverseGeocode = async (lat, lng) => {
     try {
       const res = await fetch(
-        `https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lng}&format=json`
+        `https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lng}&format=json`,
       );
       const data = await res.json();
 
-      return (
-        data.display_name ||
-        `${lat.toFixed(4)}, ${lng.toFixed(4)}`
-      );
+      return data.display_name || `${lat.toFixed(4)}, ${lng.toFixed(4)}`;
     } catch (err) {
       return `${lat.toFixed(4)}, ${lng.toFixed(4)}`;
     }
@@ -73,7 +69,7 @@ export function PostRequestPage() {
 
   const [description, setDescription] = useState("");
   const [location, setLocation] = useState(null);
-  const [locationName, setLocationName] = useState("");   // ✅ NEW
+  const [locationName, setLocationName] = useState(""); // ✅ NEW
   const [budget, setBudget] = useState("");
   const [date, setDate] = useState("");
   const [time, setTime] = useState("");
@@ -138,7 +134,7 @@ export function PostRequestPage() {
         latitude: location.lat,
         longitude: location.lng,
 
-        location_name: locationName,   // ✅ NEW (IMPORTANT UX FIELD)
+        location_name: locationName, // ✅ NEW (IMPORTANT UX FIELD)
 
         location_link: `https://www.google.com/maps?q=${location.lat},${location.lng}`,
 
@@ -148,11 +144,7 @@ export function PostRequestPage() {
         note: additionalNotes,
       };
 
-      const response = await fetch("http://localhost:8000/requests", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(requestData),
-      });
+      const response = await api.post("/requests", requestData)
 
       const data = await response.json();
 
@@ -172,7 +164,6 @@ export function PostRequestPage() {
 
   return (
     <div className="min-h-screen bg-gray-50">
-
       <header className="bg-white border-b px-8 py-6">
         <Link to="/customer-dashboard" className="text-blue-600 flex gap-2">
           <ArrowLeft className="w-4 h-4" />
@@ -184,7 +175,6 @@ export function PostRequestPage() {
 
       <main className="px-8 py-8 max-w-4xl mx-auto">
         <form onSubmit={handleSubmit} className="space-y-6">
-
           {/* CATEGORY */}
           <div>
             <label className="font-semibold mb-2 block">Category</label>
@@ -265,8 +255,16 @@ export function PostRequestPage() {
             placeholder="Budget"
           />
 
-          <input type="date" value={date} onChange={(e) => setDate(e.target.value)} />
-          <input type="time" value={time} onChange={(e) => setTime(e.target.value)} />
+          <input
+            type="date"
+            value={date}
+            onChange={(e) => setDate(e.target.value)}
+          />
+          <input
+            type="time"
+            value={time}
+            onChange={(e) => setTime(e.target.value)}
+          />
 
           <textarea
             className="w-full border p-3 rounded-xl"
