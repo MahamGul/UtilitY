@@ -5,10 +5,10 @@ import {
   XCircle,
   Clock,
   Eye,
-  Star
+  Star,
 } from "lucide-react";
-import { useState, useEffect } from "react";
-import axios from "axios";
+import { useState, useEffect, useCallback } from "react";
+import api from "../services/api";
 
 /* ---------------- STATUS CONFIG ---------------- */
 const getStatusConfig = (status) => {
@@ -17,21 +17,21 @@ const getStatusConfig = (status) => {
       return {
         color: "bg-green-100 text-green-700",
         icon: CheckCircle,
-        label: "Completed"
+        label: "Completed",
       };
 
     case "cancelled":
       return {
         color: "bg-red-100 text-red-700",
         icon: XCircle,
-        label: "Cancelled"
+        label: "Cancelled",
       };
 
     default:
       return {
         color: "bg-yellow-100 text-yellow-700",
         icon: Clock,
-        label: "Pending"
+        label: "Pending",
       };
   }
 };
@@ -47,33 +47,31 @@ export default function ServiceHistoryPage() {
   const [bidDetails, setBidDetails] = useState(null);
   const [loadingBid, setLoadingBid] = useState(false);
 
-  const userEmail = JSON.parse(localStorage.getItem("user"))?.email;
+  const userEmail = localStorage.getItem("email");
 
   /* ---------------- FETCH HISTORY ---------------- */
-  const fetchRequests = async () => {
+  const fetchRequests = useCallback(async () => {
     try {
-      const res = await axios.get(
-        `http://localhost:8000/requests/${userEmail}`
-      );
+      const res = await api.get(`/requests/${userEmail}`);
 
       const data = res.data || [];
 
       const transformed = data
         .filter(
-          (req) =>
-            req.status === "completed" || req.status === "cancelled"
+          (req) => req.status === "completed" || req.status === "cancelled",
         )
         .map((req) => ({
           id: req.id,
           serviceType: req.description || req.category,
 
-          providerName:
-            (req.provider_name ||
-              req.provider ||
-              req.provider_email ||
-              "No Provider")
-              ?.split("@")[0]
-              ?.replace(/^./, (c) => c.toUpperCase()),
+          providerName: (
+            req.provider_name ||
+            req.provider ||
+            req.provider_email ||
+            "No Provider"
+          )
+            ?.split("@")[0]
+            ?.replace(/^./, (c) => c.toUpperCase()),
 
           rating: 0,
           date: req.date,
@@ -84,19 +82,19 @@ export default function ServiceHistoryPage() {
           fallbackBid: {
             amount: req.budget,
             message: req.description,
-            completed_at: req.completed_at || req.date
-          }
+            completed_at: req.completed_at || req.date,
+          },
         }));
 
       setServices(transformed);
     } catch (err) {
       console.log("Error fetching history:", err);
     }
-  };
+}, [userEmail]);
 
   useEffect(() => {
     if (userEmail) fetchRequests();
-  }, [userEmail]);
+  }, [userEmail, fetchRequests]);
 
   /* ---------------- OPEN DETAILS ---------------- */
   const openDetails = async (service) => {
@@ -107,29 +105,21 @@ export default function ServiceHistoryPage() {
 
     try {
       // 1️⃣ Get all bids for this request
-      const bidRes = await axios.get(
-        `http://localhost:8000/bids/request/${service.id}`
-      );
+      const bidRes = await api.get(`/bids/request/${service.id}`);
 
       const bids = bidRes.data || [];
 
       // 2️⃣ Get request data to find accepted bid id
-      const reqRes = await axios.get(
-        `http://localhost:8000/requests/${userEmail}`
-      );
+      const reqRes = await api.get(`/requests/${userEmail}`);
 
       const requests = reqRes.data || [];
 
-      const currentRequest = requests.find(
-        (r) => r.id === service.id
-      );
+      const currentRequest = requests.find((r) => r.id === service.id);
 
       const acceptedBidId = currentRequest?.accepted_bid_id;
 
       // 3️⃣ Find accepted bid
-      let acceptedBid = bids.find(
-        (b) => b.id === acceptedBidId
-      );
+      let acceptedBid = bids.find((b) => b.id === acceptedBidId);
 
       // 4️⃣ FINAL SAFE FALLBACK
       if (!acceptedBid && service.status === "completed") {
@@ -138,12 +128,11 @@ export default function ServiceHistoryPage() {
         setBidDetails({
           amount: acceptedBid.bid_amount,
           message: acceptedBid.message,
-          completed_at: acceptedBid.completed_at
+          completed_at: acceptedBid.completed_at,
         });
       } else {
         setBidDetails(null);
       }
-
     } catch (err) {
       console.log("Error fetching bid details:", err);
 
@@ -153,7 +142,6 @@ export default function ServiceHistoryPage() {
       } else {
         setBidDetails(null);
       }
-
     } finally {
       setLoadingBid(false);
     }
@@ -165,10 +153,13 @@ export default function ServiceHistoryPage() {
       if (filter === "all") return true;
       return service.status === filter;
     })
-    .filter((service) =>
-      service.serviceType.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      service.providerName.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      service.id.toLowerCase().includes(searchQuery.toLowerCase())
+    .filter(
+      (service) =>
+        service.serviceType.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        service.providerName
+          .toLowerCase()
+          .includes(searchQuery.toLowerCase()) ||
+        service.id.toLowerCase().includes(searchQuery.toLowerCase()),
     );
 
   const totalSpent = filteredServices
@@ -178,7 +169,6 @@ export default function ServiceHistoryPage() {
   /* ---------------- UI ---------------- */
   return (
     <div className="p-6">
-
       {/* HEADER */}
       <div className="flex justify-between items-center mb-6">
         <div>
@@ -193,7 +183,6 @@ export default function ServiceHistoryPage() {
 
       {/* TABLE */}
       <div className="bg-white border rounded-xl overflow-hidden">
-
         <table className="w-full">
           <thead className="bg-gray-100 text-gray-600 text-sm">
             <tr>
@@ -213,21 +202,18 @@ export default function ServiceHistoryPage() {
 
               return (
                 <tr key={service.id} className="border-t hover:bg-gray-50">
+                  <td className="p-4 font-semibold">{service.serviceType}</td>
 
-                  <td className="p-4 font-semibold">
-                    {service.serviceType}
-                  </td>
-
-                  <td className="p-4 text-sm">
-                    {service.providerName}
-                  </td>
+                  <td className="p-4 text-sm">{service.providerName}</td>
 
                   <td className="p-4 text-sm">
                     {new Date(service.date).toLocaleDateString()}
                   </td>
 
                   <td className="p-4">
-                    <span className={`inline-flex items-center gap-1 px-3 py-1 text-xs rounded-full ${statusConfig.color}`}>
+                    <span
+                      className={`inline-flex items-center gap-1 px-3 py-1 text-xs rounded-full ${statusConfig.color}`}
+                    >
                       <StatusIcon className="w-3 h-3" />
                       {statusConfig.label}
                     </span>
@@ -247,7 +233,6 @@ export default function ServiceHistoryPage() {
                       Details
                     </button>
                   </td>
-
                 </tr>
               );
             })}
@@ -258,16 +243,20 @@ export default function ServiceHistoryPage() {
       {/* MODAL */}
       {openModal && (
         <div className="fixed inset-0 bg-black bg-opacity-40 flex justify-center items-center z-50">
-
           <div className="bg-white w-[500px] p-6 rounded-xl shadow-lg">
-
             <h2 className="text-xl font-bold mb-3">Service Details</h2>
 
             {selectedService && (
               <div className="text-sm space-y-2">
-                <p><b>Service:</b> {selectedService.serviceType}</p>
-                <p><b>Provider:</b> {selectedService.providerName}</p>
-                <p><b>Status:</b> {selectedService.status}</p>
+                <p>
+                  <b>Service:</b> {selectedService.serviceType}
+                </p>
+                <p>
+                  <b>Provider:</b> {selectedService.providerName}
+                </p>
+                <p>
+                  <b>Status:</b> {selectedService.status}
+                </p>
               </div>
             )}
 
@@ -277,14 +266,18 @@ export default function ServiceHistoryPage() {
               <p>Loading bid details...</p>
             ) : bidDetails ? (
               <div className="text-sm space-y-2">
-                <p><b>Accepted Bid:</b> ${bidDetails.amount}</p>
-                <p><b>Message:</b> {bidDetails.message || "No message"}</p>
-                <p><b>Completed On:</b> {bidDetails.completed_at || "N/A"}</p>
+                <p>
+                  <b>Accepted Bid:</b> ${bidDetails.amount}
+                </p>
+                <p>
+                  <b>Message:</b> {bidDetails.message || "No message"}
+                </p>
+                <p>
+                  <b>Completed On:</b> {bidDetails.completed_at || "N/A"}
+                </p>
               </div>
             ) : (
-              <p className="text-gray-500 text-sm">
-                No bid details available.
-              </p>
+              <p className="text-gray-500 text-sm">No bid details available.</p>
             )}
 
             <button
@@ -293,12 +286,9 @@ export default function ServiceHistoryPage() {
             >
               Close
             </button>
-
           </div>
-
         </div>
       )}
-
     </div>
   );
 }
