@@ -252,8 +252,7 @@
 
 import React, { useEffect, useState } from "react";
 import { useLocation } from "react-router-dom";
-
-const API = "http://localhost:8000";
+import api from "../services/api";
 
 export default function CustomerMessages() {
   const [conversations, setConversations] = useState([]);
@@ -268,7 +267,8 @@ export default function CustomerMessages() {
 
   // 🔹 Load conversations
   useEffect(() => {
-    fetch(`${API}/conversations/${userEmail}`)
+    api
+      .get(`/conversations/${userEmail}`)
       .then((res) => res.json())
       .then((data) => {
         console.log("CONVERSATIONS:", data);
@@ -292,18 +292,19 @@ export default function CustomerMessages() {
   }, [preselectedUser]);
 
   useEffect(() => {
-  const interval = setInterval(() => {
-    if (selectedUser) loadMessages(selectedUser);
-  }, 2000);
+    const interval = setInterval(() => {
+      if (selectedUser) loadMessages(selectedUser);
+    }, 2000);
 
-  return () => clearInterval(interval);
-}, [selectedUser]);
+    return () => clearInterval(interval);
+  }, [selectedUser]);
 
   // 🔹 Load messages
   const loadMessages = (otherUser) => {
     setSelectedUser(otherUser);
 
-    fetch(`${API}/messages/${userEmail}/${otherUser}`)
+    api
+      .get(`/messages/${userEmail}/${otherUser}`)
       .then((res) => res.json())
       .then((data) => setMessages(data || []))
       .catch(() => setMessages([]));
@@ -345,7 +346,7 @@ export default function CustomerMessages() {
 
     // ✅ 4. Send to backend (AFTER UI update)
     try {
-      await fetch(`${API}/messages`, {
+      await api.get(`/messages`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
