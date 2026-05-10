@@ -3,23 +3,45 @@
 import { Link, useLocation } from "react-router";
 import { useState, useEffect } from "react";
 import {
-  LayoutDashboard, ClipboardList, MessageSquare, History,
-  User, LogOut, Wrench, Clock, Eye, MapPin, Calendar,
-  Filter, Loader2, AlertCircle, Trash2, ChevronDown, ChevronUp,
-  X, BadgeCheck, Hourglass, XCircle, PlayCircle,
-  CheckCircle2, Navigation, ExternalLink
+  LayoutDashboard,
+  ClipboardList,
+  MessageSquare,
+  History,
+  User,
+  LogOut,
+  Wrench,
+  Clock,
+  Eye,
+  MapPin,
+  Calendar,
+  Filter,
+  Loader2,
+  AlertCircle,
+  Trash2,
+  ChevronDown,
+  ChevronUp,
+  X,
+  BadgeCheck,
+  Hourglass,
+  XCircle,
+  PlayCircle,
+  CheckCircle2,
+  Navigation,
+  ExternalLink,
 } from "lucide-react";
 import { Button } from "../ui/button";
 
 import { MapContainer, TileLayer, Marker, useMapEvents } from "react-leaflet";
 import "leaflet/dist/leaflet.css";
 import L from "leaflet";
+import api from "../services/api";
 
 delete L.Icon.Default.prototype._getIconUrl;
 L.Icon.Default.mergeOptions({
-  iconRetinaUrl: "https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon-2x.png",
-  iconUrl:       "https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon.png",
-  shadowUrl:     "https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png",
+  iconRetinaUrl:
+    "https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon-2x.png",
+  iconUrl: "https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon.png",
+  shadowUrl: "https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png",
 });
 
 const BASE_URL = "http://localhost:8000";
@@ -29,16 +51,44 @@ const BASE_URL = "http://localhost:8000";
 /* ------------------------------------------------------------------ */
 
 const BID_STATUS_META = {
-  pending:     { label: "Pending",     cls: "bg-yellow-50 text-yellow-700 border-yellow-200", Icon: Hourglass    },
-  accepted:    { label: "Accepted",    cls: "bg-green-50  text-green-700  border-green-200",  Icon: BadgeCheck   },
-  rejected:    { label: "Rejected",    cls: "bg-red-50    text-red-700    border-red-200",    Icon: XCircle      },
-  withdrawn:   { label: "Withdrawn",   cls: "bg-gray-100  text-gray-600   border-gray-200",   Icon: X            },
-  in_progress: { label: "In Progress", cls: "bg-blue-50   text-blue-700   border-blue-200",   Icon: PlayCircle   },
-  completed:   { label: "Completed",   cls: "bg-teal-50   text-teal-700   border-teal-200",   Icon: CheckCircle2 },
+  pending: {
+    label: "Pending",
+    cls: "bg-yellow-50 text-yellow-700 border-yellow-200",
+    Icon: Hourglass,
+  },
+  accepted: {
+    label: "Accepted",
+    cls: "bg-green-50  text-green-700  border-green-200",
+    Icon: BadgeCheck,
+  },
+  rejected: {
+    label: "Rejected",
+    cls: "bg-red-50    text-red-700    border-red-200",
+    Icon: XCircle,
+  },
+  withdrawn: {
+    label: "Withdrawn",
+    cls: "bg-gray-100  text-gray-600   border-gray-200",
+    Icon: X,
+  },
+  in_progress: {
+    label: "In Progress",
+    cls: "bg-blue-50   text-blue-700   border-blue-200",
+    Icon: PlayCircle,
+  },
+  completed: {
+    label: "Completed",
+    cls: "bg-teal-50   text-teal-700   border-teal-200",
+    Icon: CheckCircle2,
+  },
 };
 
 const getStatusMeta = (status) =>
-  BID_STATUS_META[status] ?? { label: status, cls: "bg-gray-100 text-gray-700 border-gray-200", Icon: Clock };
+  BID_STATUS_META[status] ?? {
+    label: status,
+    cls: "bg-gray-100 text-gray-700 border-gray-200",
+    Icon: Clock,
+  };
 
 /* ================================================================== */
 /*  MAP LOCATION PICKER                                                 */
@@ -49,14 +99,16 @@ function LocationPicker({ setMarkerPos, setAddress }) {
     try {
       const res = await fetch(
         `https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lng}&format=json`,
-        { headers: { "Accept-Language": "en" } }
+        { headers: { "Accept-Language": "en" } },
       );
       const data = await res.json();
       const a = data.address || {};
 
       const parts = [
         a.shop || a.amenity || a.building || a.office || a.tourism,
-        a.house_number ? `${a.house_number} ${a.road || ""}`.trim() : a.road || a.pedestrian || a.footway || a.path,
+        a.house_number
+          ? `${a.house_number} ${a.road || ""}`.trim()
+          : a.road || a.pedestrian || a.footway || a.path,
         a.suburb || a.neighbourhood || a.quarter || a.residential,
         a.city_district || a.county,
         a.city || a.town || a.village || a.municipality,
@@ -64,7 +116,11 @@ function LocationPicker({ setMarkerPos, setAddress }) {
         a.country,
       ].filter(Boolean);
 
-      return parts.join(", ") || data.display_name || `${lat.toFixed(6)}, ${lng.toFixed(6)}`;
+      return (
+        parts.join(", ") ||
+        data.display_name ||
+        `${lat.toFixed(6)}, ${lng.toFixed(6)}`
+      );
     } catch {
       return `${lat.toFixed(6)}, ${lng.toFixed(6)}`;
     }
@@ -88,36 +144,43 @@ function LocationPicker({ setMarkerPos, setAddress }) {
 
 function StartServiceModal({ bid, onClose, onStarted }) {
   const [markerPos, setMarkerPos] = useState(null);
-  const [address,   setAddress]   = useState("");
-  const [step,      setStep]      = useState("pick");
-  const [errMsg,    setErrMsg]    = useState("");
+  const [address, setAddress] = useState("");
+  const [step, setStep] = useState("pick");
+  const [errMsg, setErrMsg] = useState("");
 
   // Lock body scroll while modal is open
   useEffect(() => {
     document.body.style.overflow = "hidden";
-    return () => { document.body.style.overflow = ""; };
+    return () => {
+      document.body.style.overflow = "";
+    };
   }, []);
 
-  const providerEmail = JSON.parse(localStorage.getItem("user") || "{}").email || "";
+  const providerEmail = localStorage.getItem("email");
 
   const confirmStart = async () => {
     if (!markerPos) return;
     setStep("submitting");
     try {
-      const res = await fetch(`${BASE_URL}/bids/${bid.id}/start`, {
+      const res = await api.get(`/bids/${bid.id}/start`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          provider_email:   providerEmail,
-          latitude:         markerPos.lat,
-          longitude:        markerPos.lng,
-          provider_address: address || `${markerPos.lat.toFixed(6)}, ${markerPos.lng.toFixed(6)}`,
+          provider_email: providerEmail,
+          latitude: markerPos.lat,
+          longitude: markerPos.lng,
+          provider_address:
+            address ||
+            `${markerPos.lat.toFixed(6)}, ${markerPos.lng.toFixed(6)}`,
         }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.detail || "Failed to start service");
       setStep("success");
-      setTimeout(() => { onStarted(); onClose(); }, 1800);
+      setTimeout(() => {
+        onStarted();
+        onClose();
+      }, 1800);
     } catch (err) {
       setErrMsg(err.message);
       setStep("error");
@@ -129,26 +192,28 @@ function StartServiceModal({ bid, onClose, onStarted }) {
     // centred when there's room but allows it to scroll on short viewports.
     <div className="fixed inset-0 bg-black/50 flex items-start justify-center z-50 p-4 overflow-y-auto">
       <div className="bg-white w-full max-w-lg rounded-2xl shadow-2xl overflow-hidden my-auto">
-
         <div className="flex items-center justify-between px-6 py-4 border-b">
           <h2 className="text-xl font-bold flex items-center gap-2">
             <PlayCircle className="text-sky-500" size={22} />
             Start My Service
           </h2>
-          <button onClick={onClose} className="text-gray-400 hover:text-gray-600 transition-colors">
+          <button
+            onClick={onClose}
+            className="text-gray-400 hover:text-gray-600 transition-colors"
+          >
             <X size={20} />
           </button>
         </div>
 
         <div className="p-6">
-
           <div className="bg-gray-50 rounded-xl p-4 mb-5 border text-sm space-y-1">
             <p className="font-semibold text-base line-clamp-2">
               {bid.request_snapshot?.title || "Service Request"}
             </p>
             <p className="text-gray-500">
               {bid.request_snapshot?.customer_name}
-              {bid.request_snapshot?.location_name && ` · ${bid.request_snapshot.location_name}`}
+              {bid.request_snapshot?.location_name &&
+                ` · ${bid.request_snapshot.location_name}`}
             </p>
             <p className="text-green-600 font-bold text-base">
               Rs. {bid.bid_amount?.toLocaleString()}
@@ -158,7 +223,8 @@ function StartServiceModal({ bid, onClose, onStarted }) {
           {step === "pick" && (
             <>
               <p className="text-gray-500 text-sm mb-3 leading-relaxed">
-                Click anywhere on the map to drop a pin at your current location before starting the job.
+                Click anywhere on the map to drop a pin at your current location
+                before starting the job.
               </p>
 
               <input
@@ -168,21 +234,32 @@ function StartServiceModal({ bid, onClose, onStarted }) {
                 placeholder="Click the map to select your location…"
               />
 
-              <div className="rounded-xl overflow-hidden border mb-4" style={{ height: 260 }}>
+              <div
+                className="rounded-xl overflow-hidden border mb-4"
+                style={{ height: 260 }}
+              >
                 <MapContainer
                   center={[31.5204, 74.3587]}
                   zoom={12}
                   style={{ height: "100%", width: "100%" }}
                 >
                   <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
-                  <LocationPicker setMarkerPos={setMarkerPos} setAddress={setAddress} />
-                  {markerPos && <Marker position={[markerPos.lat, markerPos.lng]} />}
+                  <LocationPicker
+                    setMarkerPos={setMarkerPos}
+                    setAddress={setAddress}
+                  />
+                  {markerPos && (
+                    <Marker position={[markerPos.lat, markerPos.lng]} />
+                  )}
                 </MapContainer>
               </div>
 
               {markerPos && (
                 <div className="bg-green-50 border border-green-200 rounded-xl p-3 mb-4 flex items-start gap-2 text-sm">
-                  <Navigation size={14} className="text-green-500 shrink-0 mt-0.5" />
+                  <Navigation
+                    size={14}
+                    className="text-green-500 shrink-0 mt-0.5"
+                  />
                   <div className="min-w-0">
                     <p className="text-xs font-mono text-green-700">
                       {markerPos.lat.toFixed(6)}, {markerPos.lng.toFixed(6)}
@@ -247,7 +324,10 @@ function StartServiceModal({ bid, onClose, onStarted }) {
               </div>
               <div className="flex gap-3">
                 <Button
-                  onClick={() => { setStep("pick"); setErrMsg(""); }}
+                  onClick={() => {
+                    setStep("pick");
+                    setErrMsg("");
+                  }}
                   className="flex-1 bg-sky-500 hover:bg-sky-600 text-white"
                 >
                   Try Again
@@ -258,7 +338,6 @@ function StartServiceModal({ bid, onClose, onStarted }) {
               </div>
             </>
           )}
-
         </div>
       </div>
     </div>
@@ -270,12 +349,12 @@ function StartServiceModal({ bid, onClose, onStarted }) {
 /* ================================================================== */
 
 export function BidsHistoryPage() {
-  const [bids, setBids]                   = useState([]);
-  const [loading, setLoading]             = useState(true);
-  const [error, setError]                 = useState(null);
-  const [filterStatus, setFilterStatus]   = useState("All");
-  const [expandedId, setExpandedId]       = useState(null);
-  const [withdrawing, setWithdrawing]     = useState(null);
+  const [bids, setBids] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+  const [filterStatus, setFilterStatus] = useState("All");
+  const [expandedId, setExpandedId] = useState(null);
+  const [withdrawing, setWithdrawing] = useState(null);
   const [startModalBid, setStartModalBid] = useState(null);
 
   const providerEmail =
@@ -290,7 +369,7 @@ export function BidsHistoryPage() {
     try {
       setLoading(true);
       setError(null);
-      const res = await fetch(`${BASE_URL}/bids/provider/${providerEmail}`);
+      const res = await api.get(`/bids/provider/${providerEmail}`);
       if (!res.ok) throw new Error(`Server error: ${res.status}`);
       const data = await res.json();
       setBids(data);
@@ -301,13 +380,15 @@ export function BidsHistoryPage() {
     }
   };
 
-  useEffect(() => { fetchBids(); }, [providerEmail]);
+  useEffect(() => {
+    fetchBids();
+  }, [providerEmail]);
 
   const handleWithdraw = async (bid) => {
     if (!window.confirm("Withdraw this bid?")) return;
     setWithdrawing(bid.id);
     try {
-      const res = await fetch(`${BASE_URL}/bids/${bid.id}`, {
+      const res = await api.get(`/bids/${bid.id}`, {
         method: "DELETE",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ provider_email: providerEmail }),
@@ -329,20 +410,21 @@ export function BidsHistoryPage() {
   };
 
   const stats = {
-    pending:    bids.filter((b) => b.status === "pending").length,
-    accepted:   bids.filter((b) => b.status === "accepted").length,
+    pending: bids.filter((b) => b.status === "pending").length,
+    accepted: bids.filter((b) => b.status === "accepted").length,
     inProgress: bids.filter((b) => b.status === "in_progress").length,
-    completed:  bids.filter((b) => b.status === "completed").length,
+    completed: bids.filter((b) => b.status === "completed").length,
   };
 
   const filtered =
     filterStatus === "All"
       ? bids
-      : bids.filter((b) => b.status === filterStatus.toLowerCase().replace(" ", "_"));
+      : bids.filter(
+          (b) => b.status === filterStatus.toLowerCase().replace(" ", "_"),
+        );
 
   return (
     <div className="min-h-screen bg-gray-50 flex">
-
       <aside className="w-64 bg-white border-r flex flex-col shrink-0">
         <div className="p-6 border-b">
           <Link to="/" className="flex items-center gap-3">
@@ -353,11 +435,33 @@ export function BidsHistoryPage() {
           </Link>
         </div>
         <nav className="flex-1 p-4 space-y-1">
-          <SidebarLink to="/provider-dashboard" icon={<LayoutDashboard size={18} />} label="Home"             />
-          <SidebarLink to="/provider-messages"  icon={<MessageSquare   size={18} />} label="Messages" badge="5" />
-          <SidebarLink to="/bids-history"       icon={<History         size={18} />} label="Bids History" active />
-          <SidebarLink to="/my-bids"            icon={<ClipboardList   size={18} />} label="Available Bids"  />
-          <SidebarLink to="/provider-profile"   icon={<User            size={18} />} label="Profile"          />
+          <SidebarLink
+            to="/provider-dashboard"
+            icon={<LayoutDashboard size={18} />}
+            label="Home"
+          />
+          <SidebarLink
+            to="/provider-messages"
+            icon={<MessageSquare size={18} />}
+            label="Messages"
+            badge="5"
+          />
+          <SidebarLink
+            to="/bids-history"
+            icon={<History size={18} />}
+            label="Bids History"
+            active
+          />
+          <SidebarLink
+            to="/my-bids"
+            icon={<ClipboardList size={18} />}
+            label="Available Bids"
+          />
+          <SidebarLink
+            to="/provider-profile"
+            icon={<User size={18} />}
+            label="Profile"
+          />
         </nav>
         <div className="p-4 border-t">
           <Link
@@ -376,15 +480,33 @@ export function BidsHistoryPage() {
         </header>
 
         <div className="p-8 space-y-6">
-
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-            <StatCard icon={<Hourglass    className="w-6 h-6 text-yellow-500" />} label="Pending"     value={stats.pending}    />
-            <StatCard icon={<BadgeCheck   className="w-6 h-6 text-green-600"  />} label="Accepted"    value={stats.accepted}   />
-            <StatCard icon={<PlayCircle   className="w-6 h-6 text-blue-500"   />} label="In Progress" value={stats.inProgress} />
-            <StatCard icon={<CheckCircle2 className="w-6 h-6 text-teal-500"   />} label="Completed"   value={stats.completed}  />
+            <StatCard
+              icon={<Hourglass className="w-6 h-6 text-yellow-500" />}
+              label="Pending"
+              value={stats.pending}
+            />
+            <StatCard
+              icon={<BadgeCheck className="w-6 h-6 text-green-600" />}
+              label="Accepted"
+              value={stats.accepted}
+            />
+            <StatCard
+              icon={<PlayCircle className="w-6 h-6 text-blue-500" />}
+              label="In Progress"
+              value={stats.inProgress}
+            />
+            <StatCard
+              icon={<CheckCircle2 className="w-6 h-6 text-teal-500" />}
+              label="Completed"
+              value={stats.completed}
+            />
           </div>
 
-          <FilterBar filterStatus={filterStatus} setFilterStatus={setFilterStatus} />
+          <FilterBar
+            filterStatus={filterStatus}
+            setFilterStatus={setFilterStatus}
+          />
 
           {loading ? (
             <LoadingState />
@@ -399,7 +521,9 @@ export function BidsHistoryPage() {
                   key={bid.id}
                   bid={bid}
                   expanded={expandedId === bid.id}
-                  onToggle={() => setExpandedId(expandedId === bid.id ? null : bid.id)}
+                  onToggle={() =>
+                    setExpandedId(expandedId === bid.id ? null : bid.id)
+                  }
                   onWithdraw={handleWithdraw}
                   withdrawing={withdrawing === bid.id}
                   onStartService={() => setStartModalBid(bid)}
@@ -407,7 +531,6 @@ export function BidsHistoryPage() {
               ))}
             </div>
           )}
-
         </div>
       </main>
 
@@ -426,13 +549,20 @@ export function BidsHistoryPage() {
 /*  BID CARD                                                            */
 /* ================================================================== */
 
-function BidCard({ bid, expanded, onToggle, onWithdraw, withdrawing, onStartService }) {
-  const snap         = bid.request_snapshot || {};
-  const meta         = getStatusMeta(bid.status);
-  const Icon         = meta.Icon;
-  const isAccepted   = bid.status === "accepted";
+function BidCard({
+  bid,
+  expanded,
+  onToggle,
+  onWithdraw,
+  withdrawing,
+  onStartService,
+}) {
+  const snap = bid.request_snapshot || {};
+  const meta = getStatusMeta(bid.status);
+  const Icon = meta.Icon;
+  const isAccepted = bid.status === "accepted";
   const isInProgress = bid.status === "in_progress";
-  const isCompleted  = bid.status === "completed";
+  const isCompleted = bid.status === "completed";
 
   const providerCoords = bid.provider_start_location?.coordinates
     ? {
@@ -442,12 +572,17 @@ function BidCard({ bid, expanded, onToggle, onWithdraw, withdrawing, onStartServ
     : null;
 
   return (
-    <div className={`bg-white rounded-2xl border overflow-hidden shadow-sm hover:shadow-md transition-shadow ${
-      isAccepted   ? "border-green-300 ring-1 ring-green-200" :
-      isInProgress ? "border-blue-300  ring-1 ring-blue-200"  :
-      isCompleted  ? "border-teal-300  ring-1 ring-teal-200"  : ""
-    }`}>
-
+    <div
+      className={`bg-white rounded-2xl border overflow-hidden shadow-sm hover:shadow-md transition-shadow ${
+        isAccepted
+          ? "border-green-300 ring-1 ring-green-200"
+          : isInProgress
+            ? "border-blue-300  ring-1 ring-blue-200"
+            : isCompleted
+              ? "border-teal-300  ring-1 ring-teal-200"
+              : ""
+      }`}
+    >
       {isAccepted && (
         <div className="bg-green-500 text-white text-xs font-semibold px-4 py-2 flex items-center gap-2">
           <BadgeCheck size={13} />
@@ -457,7 +592,8 @@ function BidCard({ bid, expanded, onToggle, onWithdraw, withdrawing, onStartServ
       {isInProgress && (
         <div className="bg-blue-500 text-white text-xs font-semibold px-4 py-2 flex items-center gap-2">
           <PlayCircle size={13} />
-          Service in progress — waiting for the client to mark the job as complete
+          Service in progress — waiting for the client to mark the job as
+          complete
         </div>
       )}
       {isCompleted && (
@@ -474,7 +610,9 @@ function BidCard({ bid, expanded, onToggle, onWithdraw, withdrawing, onStartServ
               <h3 className="text-lg font-bold truncate">
                 {snap.title || "Service Request"}
               </h3>
-              <span className={`inline-flex items-center gap-1 px-2.5 py-1 text-xs font-semibold rounded-lg border whitespace-nowrap ${meta.cls}`}>
+              <span
+                className={`inline-flex items-center gap-1 px-2.5 py-1 text-xs font-semibold rounded-lg border whitespace-nowrap ${meta.cls}`}
+              >
                 <Icon className="w-3 h-3" />
                 {meta.label}
               </span>
@@ -493,7 +631,8 @@ function BidCard({ bid, expanded, onToggle, onWithdraw, withdrawing, onStartServ
               {snap.date && (
                 <span className="flex items-center gap-1.5">
                   <Calendar size={13} />
-                  {snap.date}{snap.time && ` at ${snap.time}`}
+                  {snap.date}
+                  {snap.time && ` at ${snap.time}`}
                 </span>
               )}
             </div>
@@ -523,7 +662,10 @@ function BidCard({ bid, expanded, onToggle, onWithdraw, withdrawing, onStartServ
           </button>
 
           <Link to="/provider-messages">
-            <Button variant="outline" className="flex items-center gap-2 text-sm">
+            <Button
+              variant="outline"
+              className="flex items-center gap-2 text-sm"
+            >
               <MessageSquare size={15} />
               Contact Client
             </Button>
@@ -545,10 +687,11 @@ function BidCard({ bid, expanded, onToggle, onWithdraw, withdrawing, onStartServ
               disabled={withdrawing}
               className="ml-auto flex items-center gap-2 px-4 py-2 rounded-xl text-red-600 border border-red-200 hover:bg-red-50 text-sm font-medium transition-colors disabled:opacity-50"
             >
-              {withdrawing
-                ? <Loader2 size={15} className="animate-spin" />
-                : <Trash2  size={15} />
-              }
+              {withdrawing ? (
+                <Loader2 size={15} className="animate-spin" />
+              ) : (
+                <Trash2 size={15} />
+              )}
               Withdraw Bid
             </button>
           )}
@@ -558,16 +701,21 @@ function BidCard({ bid, expanded, onToggle, onWithdraw, withdrawing, onStartServ
       {/* ── Expanded details panel ── */}
       {expanded && (
         <div className="border-t bg-gray-50 p-6 space-y-6">
-
           <div className="grid sm:grid-cols-2 gap-6">
-
             <DetailSection title="Your Bid Details">
-              <DetailRow label="Bid Amount"      value={`Rs. ${bid.bid_amount?.toLocaleString()}`} highlight />
-              <DetailRow label="Availability"    value={bid.availability}    />
+              <DetailRow
+                label="Bid Amount"
+                value={`Rs. ${bid.bid_amount?.toLocaleString()}`}
+                highlight
+              />
+              <DetailRow label="Availability" value={bid.availability} />
               <DetailRow label="Completion Time" value={bid.completion_time} />
-              <DetailRow label="Submitted At"    value={bid.created_at}      />
+              <DetailRow label="Submitted At" value={bid.created_at} />
               {bid.service_started_at && (
-                <DetailRow label="Service Started" value={bid.service_started_at} />
+                <DetailRow
+                  label="Service Started"
+                  value={bid.service_started_at}
+                />
               )}
               {bid.completed_at && (
                 <DetailRow label="Completed At" value={bid.completed_at} />
@@ -578,100 +726,117 @@ function BidCard({ bid, expanded, onToggle, onWithdraw, withdrawing, onStartServ
             </DetailSection>
 
             <DetailSection title="Request Details">
-              <DetailRow label="Category"     value={snap.category}       />
-              <DetailRow label="Client"       value={snap.customer_name}  />
+              <DetailRow label="Category" value={snap.category} />
+              <DetailRow label="Client" value={snap.customer_name} />
               <DetailRow label="Client Email" value={snap.customer_email} />
               <DetailRow
                 label="Budget"
-                value={snap.budget ? `Rs. ${Number(snap.budget).toLocaleString()}` : undefined}
+                value={
+                  snap.budget
+                    ? `Rs. ${Number(snap.budget).toLocaleString()}`
+                    : undefined
+                }
               />
               <DetailRow
                 label="Scheduled Date"
-                value={snap.date ? `${snap.date}${snap.time ? ` at ${snap.time}` : ""}` : undefined}
+                value={
+                  snap.date
+                    ? `${snap.date}${snap.time ? ` at ${snap.time}` : ""}`
+                    : undefined
+                }
               />
               {snap.location_name && (
                 <DetailRow label="Job Location" value={snap.location_name} />
               )}
             </DetailSection>
-
           </div>
 
           {/* Provider start location card */}
-          {bid.service_started && (bid.provider_start_address || providerCoords) && (
-            <div className="border-t pt-5">
-              <h4 className="text-xs font-semibold uppercase tracking-wider text-gray-400 mb-3 flex items-center gap-2">
-                <MapPin size={13} className="text-blue-500" />
-                Your Start Location
-              </h4>
+          {bid.service_started &&
+            (bid.provider_start_address || providerCoords) && (
+              <div className="border-t pt-5">
+                <h4 className="text-xs font-semibold uppercase tracking-wider text-gray-400 mb-3 flex items-center gap-2">
+                  <MapPin size={13} className="text-blue-500" />
+                  Your Start Location
+                </h4>
 
-              <div className="bg-blue-50 border border-blue-200 rounded-xl p-4 space-y-3">
-
-                <div className="flex items-start gap-3">
-                  <Navigation size={15} className="text-blue-500 shrink-0 mt-0.5" />
-                  <div>
-                    <p className="text-xs font-semibold text-blue-700 uppercase tracking-wide mb-0.5">
-                      Address
-                    </p>
-                    <p className="text-sm text-gray-800 font-medium leading-snug">
-                      {bid.provider_start_address
-                        ? bid.provider_start_address
-                        : providerCoords
-                          ? `${providerCoords.lat.toFixed(6)}, ${providerCoords.lng.toFixed(6)}`
-                          : "Address not available"}
-                    </p>
-                  </div>
-                </div>
-
-                {providerCoords && (
-                  <div className="flex items-center justify-between gap-3 flex-wrap">
-                    <div className="flex gap-4 text-xs font-mono text-blue-600">
-                      <span>
-                        <span className="font-sans font-semibold text-blue-400 mr-1">Lat</span>
-                        {providerCoords.lat.toFixed(6)}
-                      </span>
-                      <span>
-                        <span className="font-sans font-semibold text-blue-400 mr-1">Lng</span>
-                        {providerCoords.lng.toFixed(6)}
-                      </span>
+                <div className="bg-blue-50 border border-blue-200 rounded-xl p-4 space-y-3">
+                  <div className="flex items-start gap-3">
+                    <Navigation
+                      size={15}
+                      className="text-blue-500 shrink-0 mt-0.5"
+                    />
+                    <div>
+                      <p className="text-xs font-semibold text-blue-700 uppercase tracking-wide mb-0.5">
+                        Address
+                      </p>
+                      <p className="text-sm text-gray-800 font-medium leading-snug">
+                        {bid.provider_start_address
+                          ? bid.provider_start_address
+                          : providerCoords
+                            ? `${providerCoords.lat.toFixed(6)}, ${providerCoords.lng.toFixed(6)}`
+                            : "Address not available"}
+                      </p>
                     </div>
-                    <a
-                      href={
-                        bid.provider_start_address
-                          ? `https://www.google.com/maps/search/${encodeURIComponent(bid.provider_start_address)}`
-                          : `https://www.google.com/maps?q=${providerCoords.lat},${providerCoords.lng}`
-                      }
-                      target="_blank"
-                      rel="noreferrer"
-                      className="flex items-center gap-1 text-xs text-sky-500 hover:text-sky-700 underline whitespace-nowrap"
-                    >
-                      <ExternalLink size={11} />
-                      View on Google Maps
-                    </a>
                   </div>
-                )}
 
-                {providerCoords && (
-                  <div className="rounded-lg overflow-hidden border border-blue-200" style={{ height: 180 }}>
-                    <MapContainer
-                      center={[providerCoords.lat, providerCoords.lng]}
-                      zoom={15}
-                      style={{ height: "100%", width: "100%" }}
-                      zoomControl={false}
-                      dragging={false}
-                      scrollWheelZoom={false}
-                      doubleClickZoom={false}
-                      touchZoom={false}
+                  {providerCoords && (
+                    <div className="flex items-center justify-between gap-3 flex-wrap">
+                      <div className="flex gap-4 text-xs font-mono text-blue-600">
+                        <span>
+                          <span className="font-sans font-semibold text-blue-400 mr-1">
+                            Lat
+                          </span>
+                          {providerCoords.lat.toFixed(6)}
+                        </span>
+                        <span>
+                          <span className="font-sans font-semibold text-blue-400 mr-1">
+                            Lng
+                          </span>
+                          {providerCoords.lng.toFixed(6)}
+                        </span>
+                      </div>
+                      <a
+                        href={
+                          bid.provider_start_address
+                            ? `https://www.google.com/maps/search/${encodeURIComponent(bid.provider_start_address)}`
+                            : `https://www.google.com/maps?q=${providerCoords.lat},${providerCoords.lng}`
+                        }
+                        target="_blank"
+                        rel="noreferrer"
+                        className="flex items-center gap-1 text-xs text-sky-500 hover:text-sky-700 underline whitespace-nowrap"
+                      >
+                        <ExternalLink size={11} />
+                        View on Google Maps
+                      </a>
+                    </div>
+                  )}
+
+                  {providerCoords && (
+                    <div
+                      className="rounded-lg overflow-hidden border border-blue-200"
+                      style={{ height: 180 }}
                     >
-                      <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
-                      <Marker position={[providerCoords.lat, providerCoords.lng]} />
-                    </MapContainer>
-                  </div>
-                )}
-
+                      <MapContainer
+                        center={[providerCoords.lat, providerCoords.lng]}
+                        zoom={15}
+                        style={{ height: "100%", width: "100%" }}
+                        zoomControl={false}
+                        dragging={false}
+                        scrollWheelZoom={false}
+                        doubleClickZoom={false}
+                        touchZoom={false}
+                      >
+                        <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
+                        <Marker
+                          position={[providerCoords.lat, providerCoords.lng]}
+                        />
+                      </MapContainer>
+                    </div>
+                  )}
+                </div>
               </div>
-            </div>
-          )}
-
+            )}
         </div>
       )}
     </div>
@@ -689,7 +854,9 @@ function SidebarLink({ to, icon, label, badge, active }) {
     <Link
       to={to}
       className={`flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-colors ${
-        isActive ? "bg-blue-100 text-blue-700" : "text-gray-600 hover:bg-gray-100"
+        isActive
+          ? "bg-blue-100 text-blue-700"
+          : "text-gray-600 hover:bg-gray-100"
       }`}
     >
       {icon} {label}
@@ -715,7 +882,14 @@ function StatCard({ icon, label, value }) {
 }
 
 function FilterBar({ filterStatus, setFilterStatus }) {
-  const statuses = ["All", "Pending", "Accepted", "In Progress", "Rejected", "Completed"];
+  const statuses = [
+    "All",
+    "Pending",
+    "Accepted",
+    "In Progress",
+    "Rejected",
+    "Completed",
+  ];
   return (
     <div className="bg-white rounded-2xl border p-4 flex flex-wrap justify-between items-center gap-4 shadow-sm">
       <div className="flex items-center gap-2 text-gray-500 text-sm font-medium">
@@ -756,9 +930,11 @@ function DetailRow({ label, value, highlight }) {
   return (
     <div className="flex justify-between items-start gap-3 text-sm">
       <span className="text-gray-400 shrink-0">{label}</span>
-      <span className={`text-right font-medium break-words max-w-[60%] ${
-        highlight ? "text-green-600 font-bold text-base" : "text-gray-700"
-      }`}>
+      <span
+        className={`text-right font-medium break-words max-w-[60%] ${
+          highlight ? "text-green-600 font-bold text-base" : "text-gray-700"
+        }`}
+      >
         {value}
       </span>
     </div>
@@ -780,7 +956,9 @@ function ErrorState({ message, onRetry }) {
       <AlertCircle className="w-12 h-12 text-red-400" />
       <p className="text-lg font-semibold text-red-600">Something went wrong</p>
       <p className="text-gray-500 max-w-sm text-sm">{message}</p>
-      <Button onClick={onRetry} className="mt-2">Try Again</Button>
+      <Button onClick={onRetry} className="mt-2">
+        Try Again
+      </Button>
     </div>
   );
 }
@@ -794,9 +972,13 @@ function EmptyState({ filterStatus }) {
           ? "You haven't submitted any bids yet"
           : `No ${filterStatus.toLowerCase()} bids found`}
       </p>
-      <p className="text-sm">Head over to Available Bids to start bidding on jobs.</p>
+      <p className="text-sm">
+        Head over to Available Bids to start bidding on jobs.
+      </p>
       <Link to="/my-bids" className="mt-2">
-        <Button className="bg-sky-500 hover:bg-sky-600 text-white">Browse Available Bids</Button>
+        <Button className="bg-sky-500 hover:bg-sky-600 text-white">
+          Browse Available Bids
+        </Button>
       </Link>
     </div>
   );
