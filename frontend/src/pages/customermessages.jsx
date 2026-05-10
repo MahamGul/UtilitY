@@ -224,7 +224,7 @@
 
 import React, { useEffect, useState } from "react";
 import { useLocation } from "react-router-dom";
-import api from "../services/api"
+import api from "../services/api";
 
 export default function CustomerMessages() {
   const [conversations, setConversations] = useState([]);
@@ -239,12 +239,9 @@ export default function CustomerMessages() {
 
   // 🔹 Load conversations
   useEffect(() => {
-    api.get(`/conversations/${userEmail}`)
-      .then((res) => res.json())
-      .then((data) => {
-        console.log("CONVERSATIONS:", data);
-        setConversations(data || []);
-      });
+    api.get(`/conversations/${userEmail}`).then((res) => {
+      setConversations(res.data || []);
+    });
   }, [userEmail]);
 
   useEffect(() => {
@@ -274,8 +271,8 @@ export default function CustomerMessages() {
   const loadMessages = (otherUser) => {
     setSelectedUser(otherUser);
 
-    api.get(`/messages/${userEmail}/${otherUser}`)
-      .then((res) => res.json())
+    api
+      .get(`/messages/${userEmail}/${otherUser}`)
       .then((data) => setMessages(data || []))
       .catch(() => setMessages([]));
   };
@@ -313,7 +310,7 @@ export default function CustomerMessages() {
 
     // ✅ 3. Remove temp conversation
     setTempConversations((prev) => prev.filter((c) => c.user !== selectedUser));
-    
+
     // ✅ 4. Send to backend (AFTER UI update)
     try {
       await api.get(`/messages`, {
