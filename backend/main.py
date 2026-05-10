@@ -6,13 +6,17 @@ from datetime import datetime, timezone
 from bson import ObjectId
 from typing import Optional
 from utils import (
-    hash_password,
-    verify_password,
     get_object_id,
     serialize_doc,
     get_current_timestamp,
     create_response
 )
+from auth import (
+    hash_password, verify_password,
+    create_access_token, create_refresh_token,
+    decode_token, get_current_user
+)
+from fastapi import Depends
 
 app = FastAPI()
 
@@ -42,6 +46,7 @@ def add_user(user: dict):
     if db.user.find_one({"email": user["email"]}):
         raise HTTPException(status_code=400, detail="User already exists")
 
+    user["password"] = hash_password(user["password"])
     user["createdAt"] = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
     result = db.user.insert_one(user)
@@ -126,13 +131,15 @@ def login(user: dict):
 
     db_user = db.user.find_one(
         {
-            "email": user["email"],
-            "password": user["password"]
+            "email": user["email"]
         },
         {"_id": 0}
     )
 
     if not db_user:
+        raise HTTPException(status_code=401, detail="Invalid credentials")
+
+    if not verify_password(user["password"], db_user["password"]):
         raise HTTPException(status_code=401, detail="Invalid credentials")
 
     # SAFE ROLE CHECK
@@ -145,21 +152,33 @@ def login(user: dict):
 
     if db_role != req_role:
         raise HTTPException(status_code=403, detail="Role mismatch")
+    
+    token_data = {"sub": str(db_user["_id"]), "email": db_user["email"], "role": db_role}
 
     return {
         "status": "success",
-        "user": db_user
+        "access_token": create_access_token(token_data),
+        "refresh_token": create_refresh_token(token_data),
+        "token_type": "bearer"
     }
+
+@app.post("/token/refresh")
+def refresh_token(body: dict):
+    payload = decode_token(body.get("refresh_token", ""))
+    if payload.get("type") != "refresh":
+        raise HTTPException(status_code=401, detail="Invalid refresh token")
+    new_token = create_access_token({"sub": payload["sub"], "email": payload["email"], "role": payload["role"]})
+    return {"access_token": new_token, "token_type": "bearer"}
 # ================================================================
 # ---------------- CREATE REQUEST ----------------
 # ================================================================
 @app.post("/requests")
-def create_request(request: dict):
+def create_request(request: dict, current_user: dict = Depends(get_current_user)):
 
-    if "user_email" not in request:
+    if "email" not in current_user:
         raise HTTPException(status_code=400, detail="user_email is required")
 
-    user = db.user.find_one({"email": request["user_email"]})
+    user = db.user.find_one({"email": current_user["email"]})
 
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
@@ -184,7 +203,7 @@ def create_request(request: dict):
     new_request = {
         "id": str(uuid.uuid4()),
 
-        "user_email": user["email"],
+        "user_email": current_user["email"],
         "user_name": user.get("fullName") or user.get("name"),
         "customer_id": str(user["_id"]),
 
@@ -226,11 +245,11 @@ def create_request(request: dict):
 # ---------------- GET REQUESTS ----------------
 # ================================================================
 @app.get("/requests/{email}")
-def get_requests(email: str):
+def get_requests(email: str, current_user: dict = Depends(get_current_user)):
 
     requests = list(
         db.requests.find(
-            {"user_email": email},
+            {"user_email": current_user["email"]},
             {"_id": 0}
         )
     )
@@ -242,9 +261,9 @@ def get_requests(email: str):
 # ---------------- AVAILABLE REQUESTS ----------------
 # ================================================================
 @app.get("/available-requests/{provider_email}")
-def get_available_requests(provider_email: str, category: str = ""):
+def get_available_requests(provider_email: str, category: str = "", current_user: dict = Depends(get_current_user)):
 
-    already_bid = db.bids.distinct("request_id", {"provider_email": provider_email})
+    already_bid = db.bids.distinct("request_id", {"provider_email": current_user["email"]})
 
     query = {
         "status": {"$in": ["pending", "open"]},
@@ -271,7 +290,7 @@ def get_available_requests(provider_email: str, category: str = ""):
 # ================================================================
 
 @app.post("/bids")
-def submit_bid(data: dict):
+def submit_bid(data: dict, current_user: dict = Depends(get_current_user)):
     required = ["request_id", "provider_email", "bid_amount", "availability", "completion_time"]
     for field in required:
         if field not in data or data[field] == "":
@@ -283,13 +302,13 @@ def submit_bid(data: dict):
     if request.get("status") not in ["pending", "open"]:
         raise HTTPException(status_code=400, detail="This request is no longer open for bids")
 
-    provider = db.provider.find_one({"email": data["provider_email"]})
+    provider = db.provider.find_one({"email": current_user["email"]})
     if not provider:
         raise HTTPException(status_code=404, detail="Provider not found")
 
     existing = db.bids.find_one({
         "request_id": data["request_id"],
-        "provider_email": data["provider_email"]
+        "provider_email": current_user["email"]
     })
     if existing:
         raise HTTPException(status_code=400, detail="You have already submitted a bid for this request")
@@ -329,8 +348,8 @@ def submit_bid(data: dict):
 
 
 @app.get("/bids/provider/{provider_email}")
-def get_provider_bids(provider_email: str):
-    bids = list(db.bids.find({"provider_email": provider_email}, {"_id": 0}))
+def get_provider_bids(provider_email: str, current_user: dict = Depends(get_current_user)):
+    bids = list(db.bids.find({"provider_email": current_user["email"]}, {"_id": 0}))
     bids.sort(key=lambda x: x.get("created_at", ""), reverse=True)
     return bids
 
@@ -343,12 +362,12 @@ def get_request_bids(request_id: str):
 
 
 @app.delete("/bids/{bid_id}")
-def withdraw_bid(bid_id: str, data: dict):
+def withdraw_bid(bid_id: str, data: dict, current_user: dict = Depends(get_current_user)):
     bid = db.bids.find_one({"id": bid_id})
     if not bid:
         raise HTTPException(status_code=404, detail="Bid not found")
 
-    if bid["provider_email"] != data.get("provider_email"):
+    if bid["provider_email"] != current_user["email"]:
         raise HTTPException(status_code=403, detail="Not authorized")
 
     if bid["status"] != "pending":
@@ -359,7 +378,7 @@ def withdraw_bid(bid_id: str, data: dict):
 
 
 @app.put("/bids/{bid_id}/status")
-def update_bid_status(bid_id: str, data: dict):
+def update_bid_status(bid_id: str, data: dict,current_user: dict = Depends(get_current_user)):
     new_status = data.get("status")
     if new_status not in ["accepted", "rejected"]:
         raise HTTPException(status_code=400, detail="Status must be 'accepted' or 'rejected'")
@@ -372,7 +391,7 @@ def update_bid_status(bid_id: str, data: dict):
     if not request:
         raise HTTPException(status_code=404, detail="Associated request not found")
 
-    if request["user_email"] != data.get("customer_email"):
+    if request["user_email"] != current_user["email"]:
         raise HTTPException(status_code=403, detail="Not authorized")
 
     db.bids.update_one({"id": bid_id}, {"$set": {"status": new_status}})
@@ -399,10 +418,10 @@ def update_bid_status(bid_id: str, data: dict):
 # ================================================================
 
 @app.get("/provider/profile/{email}")
-def get_provider_profile(email: str):
+def get_provider_profile(email: str, current_user: dict = Depends(get_current_user)):
 
     profile = db.provider.find_one(
-        {"email": email},
+        {"email": current_user["email"]},
         {"_id": 0}
     )
 
@@ -413,10 +432,10 @@ def get_provider_profile(email: str):
 
 
 @app.put("/provider/profile/update/{email}")
-def update_provider_profile(email: str, data: dict):
+def update_provider_profile(email: str, data: dict, current_user: dict = Depends(get_current_user)):
 
     result = db.provider.update_one(
-        {"email": email},
+        {"email": current_user["email"]},
         {
             "$set": {
                 "fullName": data.get("fullName"),
@@ -431,7 +450,7 @@ def update_provider_profile(email: str, data: dict):
     )
 
     db.user.update_one(
-        {"email": email},
+        {"email": current_user["email"]},
         {
             "$set": {
                 "fullName": data.get("fullName"),
@@ -448,12 +467,12 @@ def update_provider_profile(email: str, data: dict):
 
 
 @app.put("/provider/change-password/{email}")
-def change_provider_password(email: str, data: dict):
+def change_provider_password(email: str, data: dict, current_user: dict = Depends(get_current_user)):
 
     old_password = data.get("oldPassword")
     new_password = data.get("newPassword")
 
-    user = db.user.find_one({"email": email})
+    user = db.user.find_one({"email": current_user["email"]})
 
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
@@ -462,7 +481,7 @@ def change_provider_password(email: str, data: dict):
         raise HTTPException(status_code=400, detail="Old password incorrect")
 
     db.user.update_one(
-        {"email": email},
+        {"email": current_user["email"]},
         {"$set": {"password": new_password}}
     )
 
@@ -470,10 +489,10 @@ def change_provider_password(email: str, data: dict):
 
 
 @app.put("/provider/settings/{email}")
-def update_provider_settings(email: str, data: dict):
+def update_provider_settings(email: str, data: dict, current_user: dict = Depends(get_current_user)):
 
     result = db.provider.update_one(
-        {"email": email},
+        {"email": current_user["email"]},
         {"$set": {"settings": data.get("settings")}}
     )
 
@@ -484,10 +503,10 @@ def update_provider_settings(email: str, data: dict):
 
 
 @app.put("/provider/deactivate/{email}")
-def deactivate_account(email: str):
+def deactivate_account(email: str, current_user: dict = Depends(get_current_user)):
 
     result = db.provider.update_one(
-        {"email": email},
+        {"email": current_user["email"]},
         {"$set": {"isAvailable": False, "isActive": False}}
     )
 
@@ -498,10 +517,10 @@ def deactivate_account(email: str):
 
 
 @app.delete("/provider/delete/{email}")
-def delete_provider_account(email: str):
+def delete_provider_account(email: str, current_user: dict = Depends(get_current_user)):
 
-    db.provider.delete_one({"email": email})
-    db.user.delete_one({"email": email})
+    db.provider.delete_one({"email": current_user["email"]})
+    db.user.delete_one({"email": current_user["email"]})
 
     return {"status": "success", "message": "Account deleted permanently"}
 
@@ -511,9 +530,9 @@ def delete_provider_account(email: str):
 # ================================================================
 
 @app.get("/customer-profile/{email}")
-def get_customer_profile(email: str):
+def get_customer_profile(email: str, current_user: dict = Depends(get_current_user)):
 
-    user = db.user.find_one({"email": email})
+    user = db.user.find_one({"email": current_user["email"]})
 
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
@@ -529,7 +548,7 @@ def get_customer_profile(email: str):
         profile = {
             "id": str(uuid.uuid4()),
             "userId": user_id,
-            "email": email,
+            "email": current_user["email"],
             "accountStatus": "Active",
             "memberSince": datetime.now().strftime("%Y-%m"),
             "activitySummary": {
@@ -567,13 +586,13 @@ def get_customer_profile(email: str):
 # ================================================================
 
 @app.put("/customer-profile/update/{email}")
-def update_customer_profile(email: str, data: dict):
-    user = db.user.find_one({"email": email})
+def update_customer_profile(email: str, data: dict, current_user: dict = Depends(get_current_user)):
+    user = db.user.find_one({"email": current_user["email"]})
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
 
     db.user.update_one(
-        {"email": email},
+        {"email": current_user["email"]},
         {
             "$set": {
                 "fullName": data.get("fullName"),
@@ -601,7 +620,7 @@ def update_customer_profile(email: str, data: dict):
 # ================================================================
 
 @app.put("/customer/change-password/{email}")
-def change_customer_password(email: str, data: dict):
+def change_customer_password(email: str, data: dict, current_user: dict = Depends(get_current_user)):
     old_password = data.get("oldPassword")
     new_password = data.get("newPassword")
 
@@ -611,7 +630,7 @@ def change_customer_password(email: str, data: dict):
     if len(new_password) < 4:
         raise HTTPException(status_code=400, detail="New password must be at least 4 characters")
 
-    user = db.user.find_one({"email": email})
+    user = db.user.find_one({"email": current_user["email"]})
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
 
@@ -619,7 +638,7 @@ def change_customer_password(email: str, data: dict):
         raise HTTPException(status_code=400, detail="Old password is incorrect")
 
     db.user.update_one(
-        {"email": email},
+        {"email": current_user["email"]},
         {"$set": {"password": new_password}}
     )
 
@@ -631,8 +650,8 @@ def change_customer_password(email: str, data: dict):
 # ================================================================
 
 @app.put("/customer/settings/{email}")
-def update_customer_settings(email: str, data: dict):
-    user = db.user.find_one({"email": email})
+def update_customer_settings(email: str, data: dict, current_user: dict = Depends(get_current_user)):
+    user = db.user.find_one({"email": current_user["email"]})
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
 
@@ -662,8 +681,8 @@ def update_customer_settings(email: str, data: dict):
 # ================================================================
 
 @app.put("/customer/deactivate/{email}")
-def deactivate_customer(email: str):
-    user = db.user.find_one({"email": email})
+def deactivate_customer(email: str, current_user: dict = Depends(get_current_user)):
+    user = db.user.find_one({"email": current_user["email"]})
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
 
@@ -685,16 +704,16 @@ def deactivate_customer(email: str):
 # ================================================================
 
 @app.delete("/customer/delete/{email}")
-def delete_customer(email: str):
-    user = db.user.find_one({"email": email})
+def delete_customer(email: str, current_user: dict = Depends(get_current_user)):
+    user = db.user.find_one({"email": current_user["email"]})
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
 
     user_id = str(user["_id"])
 
     db.customer_profile.delete_one({"userId": user_id})
-    db.requests.delete_many({"user_email": email})
-    db.user.delete_one({"email": email})
+    db.requests.delete_many({"user_email": current_user["email"]})
+    db.user.delete_one({"email": current_user["email"]})
 
     return {"status": "success", "message": "Account deleted permanently"}
 
@@ -703,9 +722,9 @@ def delete_customer(email: str):
 # ================================================================
 
 @app.put("/bids/{bid_id}/start")
-def start_service(bid_id: str, data: dict):
+def start_service(bid_id: str, data: dict, current_user: dict = Depends(get_current_user)):
 
-    provider_email   = data.get("provider_email")
+    provider_email   = current_user["email"]
     latitude         = data.get("latitude")
     longitude        = data.get("longitude")
     provider_address = data.get("provider_address", "")
@@ -771,9 +790,9 @@ def start_service(bid_id: str, data: dict):
 # ================================================================
 
 @app.put("/requests/{request_id}/complete")
-def mark_request_complete(request_id: str, data: dict):
+def mark_request_complete(request_id: str, data: dict, current_user: dict = Depends(get_current_user)):
 
-    customer_email = data.get("customer_email")
+    customer_email = current_user["email"]
     if not customer_email:
         raise HTTPException(status_code=400, detail="customer_email is required")
 
@@ -846,9 +865,9 @@ def mark_request_complete(request_id: str, data: dict):
 # ================================================================
 
 @app.put("/requests/{request_id}/cancel")
-def cancel_request(request_id: str, data: dict):
+def cancel_request(request_id: str, data: dict, current_user: dict = Depends(get_current_user)):
 
-    customer_email = data.get("customer_email")
+    customer_email = current_user["email"]
     if not customer_email:
         raise HTTPException(status_code=400, detail="customer_email is required")
 
@@ -898,7 +917,7 @@ def cancel_request(request_id: str, data: dict):
 # ================================================================
 
 @app.post("/feedback")
-def submit_feedback(data: dict):
+def submit_feedback(data: dict, current_user: dict = Depends(get_current_user)):
 
     required_fields = ["request_id", "customer_email", "rating"]
 
@@ -912,7 +931,7 @@ def submit_feedback(data: dict):
         raise HTTPException(status_code=404, detail="Request not found")
 
     # ---------------- VALIDATIONS ----------------
-    if request["user_email"] != data["customer_email"]:
+    if request["user_email"] != current_user["email"]:
         raise HTTPException(status_code=403, detail="Not authorized")
 
     if request.get("status") != "completed":
@@ -997,11 +1016,11 @@ def submit_feedback(data: dict):
     }
 
 @app.get("/feedback/provider/{provider_email}")
-def get_provider_feedback(provider_email: str):
+def get_provider_feedback(provider_email: str, current_user: dict = Depends(get_current_user)):
 
     feedbacks = list(
         db.feedback.find(
-            {"provider_email": provider_email},
+            {"provider_email": current_user["email"]},
             {"_id": 0}
         )
     )
@@ -1371,7 +1390,7 @@ def get_provider_details(providerId: str):
 
 
 @app.put("/admin/providers/{providerId}/approve")
-def approve_provider(providerId: str, data: dict = None):
+def approve_provider(providerId: str, data: dict):
     """Approve a provider."""
     provider = db.provider.find_one({"id": providerId})
     
